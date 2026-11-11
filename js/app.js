@@ -1,9 +1,10 @@
-// js/app.js — المحرك الديناميكي الشامل (كافة الأقسام والتصنيفات قابلة للإدارة السحابية 100%)
+// js/app.js — المحرك الديناميكي الشامل (إدارة كاملة للتصنيفات والأقسام والرقع السحابية)
 import { writeBatch, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
 import { SHARD_REFS, SUPER_ADMIN_PIN_HASH, hashPin, cleanLegalString, JUDICIAL_RANK_BADGES, firestoreDB } from "./firebase-service.js";
 import { DEFAULT_MALLAWI_WORD, NOV_2026_ENCYCLOPEDIA, WORKFLOW_STAGES, LEGAL_PRESETS, BND_DETAILS } from "./data.js";
 
-const DEFAULT_CATEGORIES = {
+const DEFAULT_TAXONOMIES = {
+    sectors: ["الكل", "محليات وإدارة هندسية", "تعاقدات ومشتريات ومخازن", "شؤون وظيفية وخدمة مدنية", "صحة وإسعاف", "تضامن وتكافل وكرامة", "تربية وتعليم", "زراعة وأملاك دولة"],
     libCategories: ["مؤلفات السادة المستشارين", "كتب دورية ومنشورات", "تشريعات ولوائح PDF", "بطاقات وصف وظيفي"],
     compassCategories: ["الاختصاص والطلب", "ضوابط التحقيق", "أوجه التصرف", "الكتب والقرارات 2026", "مبادئ الإدارية العليا"],
     defCategories: ["حيثيات الحفظ القطعي", "حيثيات الحفظ المؤقت", "حيثيات الإجراءات والاختصاص", "حيثيات الثبوت والرد على الدفوع"],
@@ -22,12 +23,11 @@ const initialPlatformState = {
     },
     settings: { inviteCode: "VIP2026" },
     vipTokens: [],
-    sectors: ["الكل", "محليات وإدارة هندسية", "تعاقدات ومشتريات ومخازن", "شؤون وظيفية وخدمة مدنية", "صحة وإسعاف", "تضامن وتكافل وكرامة", "تربية وتعليم", "زراعة وأملاك دولة"],
-    libCategories: [...DEFAULT_CATEGORIES.libCategories],
-    compassCategories: [...DEFAULT_CATEGORIES.compassCategories],
-    defCategories: [...DEFAULT_CATEGORIES.defCategories],
-    formCategories: [...DEFAULT_CATEGORIES.formCategories],
-    workflowStages: JSON.parse(JSON.stringify(WORKFLOW_STAGES)),
+    sectors: [...DEFAULT_TAXONOMIES.sectors],
+    libCategories: [...DEFAULT_TAXONOMIES.libCategories],
+    compassCategories: [...DEFAULT_TAXONOMIES.compassCategories],
+    defCategories: [...DEFAULT_TAXONOMIES.defCategories],
+    formCategories: [...DEFAULT_TAXONOMIES.formCategories],
     members: [
         { id: "super_admin", name: "المستشار أحمد الطويل", title: "معاون نيابة إدارية", workplace: "نيابة ملوي", phone: "-", username: "admin", pin: "2441998", pinHash: SUPER_ADMIN_PIN_HASH, role: "super_admin", status: "approved", perms: { add: true, edit: true, delete: true, approve: true, manageUsers: true }, lastSeen: Date.now() }
     ],
@@ -46,6 +46,7 @@ const initialPlatformState = {
 let db = JSON.parse(JSON.stringify(initialPlatformState));
 let currentUser = null, currentSector = "الكل", currentDefCategory = "الكل", currentCompassCat = "الكل", currentEditorContext = null, basket = [];
 let currentWorkflowStage = 1;
+let activeTaxonomyTab = "libCategories";
 
 function escapeHTML(str) {
     return String(str ?? "").replace(/[&<>"']/g, m => ({ '&': '&', '<': '<', '>': '>', '"': '"', "'": ''' }[m]));
@@ -61,7 +62,6 @@ function buildShardPayload(shardKey) {
             compassCategories: db.compassCategories,
             defCategories: db.defCategories,
             formCategories: db.formCategories,
-            workflowStages: db.workflowStages,
             pendingContributions: db.pendingContributions,
             auditLogs: db.auditLogs
         };
@@ -80,7 +80,6 @@ function applyShardData(shardKey, data) {
         if (Array.isArray(data.compassCategories) && data.compassCategories.length) db.compassCategories = data.compassCategories;
         if (Array.isArray(data.defCategories) && data.defCategories.length) db.defCategories = data.defCategories;
         if (Array.isArray(data.formCategories) && data.formCategories.length) db.formCategories = data.formCategories;
-        if (data.workflowStages) db.workflowStages = data.workflowStages;
         db.pendingContributions = data.pendingContributions || [];
         db.auditLogs = data.auditLogs || [];
     } else if (shardKey === 'members') {
@@ -161,7 +160,174 @@ function checkSavedSession() {
 }
 
 // ==========================================
-// محرك الرقع السحابية الشامل (يدعم التصنيفات والبيانات والإعدادات)
+// محرك إدارة التصنيفات والأقسام الشامل (Dynamic Taxonomy Engine)
+// ==========================================
+function syncDynamicTaxonomiesUI() {
+    // Ensure arrays exist
+    Object.keys(DEFAULT_TAXONOMIES).forEach(k => {
+        if (!Array.isArray(db[k]) || !db[k].length) db[k] = [...DEFAULT_TAXONOMIES[k]];
+    });
+
+    // 1. تحديث قائمة تصنيفات المكتبة
+    const libSel = document.getElementById('libCategoryFilter');
+    if (libSel) {
+        const prev = libSel.value;
+        libSel.innerHTML = `<option value="الكل">كل التصنيفات</option>` + db.libCategories.map(c => `<option value="${escapeHTML(c)}">${escapeHTML(c)}</option>`).join('');
+        libSel.value = db.libCategories.includes(prev) ? prev : "الكل";
+    }
+
+    // 2. تحديث تبويبات موسوعة البوصلة
+    const compTabs = document.getElementById('encyclopediaTabs');
+    if (compTabs) {
+        if (currentCompassCat !== "الكل" && !db.compassCategories.includes(currentCompassCat)) currentCompassCat = "الكل";
+        compTabs.innerHTML = `<button type="button" onclick="filterCompassEncyclopedia('الكل')" data-compcat="الكل" class="compass-subtab ${currentCompassCat === 'الكل' ? 'compass-tab-active' : 'bg-slate-50'} px-2.5 py-1 rounded text-xs border cursor-pointer whitespace-nowrap">الكل</button>` +
+            db.compassCategories.map(c => `<button type="button" onclick="filterCompassEncyclopedia('${escapeHTML(c)}')" data-compcat="${escapeHTML(c)}" class="compass-subtab ${currentCompassCat === c ? 'compass-tab-active' : 'bg-slate-50'} px-2.5 py-1 rounded text-xs border cursor-pointer whitespace-nowrap">${escapeHTML(c)}</button>`).join('');
+    }
+
+    // 3. تحديث تبويبات الحيثيات والدفوع
+    const defSampleBtn = document.querySelector('.def-subtab');
+    const defBar = defSampleBtn ? defSampleBtn.parentElement : null;
+    if (defBar) {
+        if (currentDefCategory !== "الكل" && !db.defCategories.includes(currentDefCategory)) currentDefCategory = "الكل";
+        defBar.innerHTML = `<button type="button" onclick="selectDefenseCategory('الكل')" data-defcat="الكل" class="def-subtab ${currentDefCategory === 'الكل' ? 'def-subtab-active' : 'bg-slate-100 text-slate-700'} px-3 py-1 rounded text-xs font-bold whitespace-nowrap cursor-pointer">الكل</button>` +
+            db.defCategories.map(c => `<button type="button" onclick="selectDefenseCategory('${escapeHTML(c)}')" data-defcat="${escapeHTML(c)}" class="def-subtab ${currentDefCategory === c ? 'def-subtab-active' : 'bg-slate-100 text-slate-700'} px-3 py-1 rounded text-xs font-bold whitespace-nowrap cursor-pointer">${escapeHTML(c)}</button>`).join('');
+    }
+
+    // 4. تحديث قائمة تصنيفات النماذج
+    const formSel = document.getElementById('formCategoryFilter');
+    if (formSel) {
+        const prev = formSel.value;
+        formSel.innerHTML = `<option value="الكل">كل النماذج</option>` + db.formCategories.map(c => `<option value="${escapeHTML(c)}">${escapeHTML(c)}</option>`).join('');
+        formSel.value = db.formCategories.includes(prev) ? prev : "الكل";
+    }
+}
+
+// حقن لوحة التحكم في التصنيفات والأقسام داخل تبويب الإضافة المباشرة بلوحة الإدارة
+function injectAdminTaxonomyManager() {
+    const quickAddView = document.getElementById('adm-QuickAdd');
+    if (!quickAddView || document.getElementById('dynamicTaxonomyManagerBox')) return;
+
+    const btnQuick = document.getElementById('admBtn-QuickAdd');
+    if (btnQuick) btnQuick.innerHTML = `4. إدارة الأقسام والتصنيفات والإضافة`;
+
+    quickAddView.className = "adm-view hidden space-y-4 text-xs";
+    quickAddView.innerHTML = `
+        <div class="bg-slate-50 p-3.5 rounded-xl border space-y-2">
+            <h4 class="font-bold text-judicial-900 text-xs flex items-center gap-1.5"><i class="fa-solid fa-plus-circle text-emerald-600"></i> أولاً: إضافة محتوى جديد مباشر للأقسام</h4>
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
+                <button type="button" onclick="openItemEditor('library')" class="p-2.5 bg-white border rounded-xl hover:bg-emerald-50 font-bold cursor-pointer shadow-sm">+ إضافة كتاب / ملف</button>
+                <button type="button" onclick="openItemEditor('jurisdiction')" class="p-2.5 bg-white border rounded-xl hover:bg-emerald-50 font-bold cursor-pointer shadow-sm">+ قاعدة بالبوصلة</button>
+                <button type="button" onclick="openItemEditor('defense')" class="p-2.5 bg-white border rounded-xl hover:bg-emerald-50 font-bold cursor-pointer shadow-sm">+ إضافة حيثية أو دفع</button>
+                <button type="button" onclick="openItemEditor('checklist')" class="p-2.5 bg-white border rounded-xl hover:bg-emerald-50 font-bold cursor-pointer shadow-sm">+ قائمة تحقيق</button>
+                <button type="button" onclick="openItemEditor('form')" class="p-2.5 bg-white border rounded-xl hover:bg-emerald-50 font-bold cursor-pointer shadow-sm">+ نموذج إجرائي</button>
+            </div>
+        </div>
+
+        <div id="dynamicTaxonomyManagerBox" class="bg-white p-4 rounded-xl border-2 border-judicial-gold space-y-3 shadow-sm">
+            <div class="flex flex-wrap justify-between items-center gap-2 border-b pb-2">
+                <div>
+                    <h4 class="font-extrabold text-sm text-judicial-900 flex items-center gap-1.5"><i class="fa-solid fa-sitemap text-judicial-gold"></i> ثانياً: مدير التصنيفات والأقسام الشامل (إضافة / تعديل / حذف)</h4>
+                    <p class="text-[11px] text-slate-500">تحكم في جميع التصنيفات والقطاعات في الموقع، وسيتم تحديث القوائم والبطاقات تلقائياً.</p>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap gap-1.5 bg-slate-100 p-1.5 rounded-lg" id="taxTypeTabs">
+                <button type="button" onclick="selectTaxonomyTab('libCategories')" id="taxTab-libCategories" class="px-3 py-1.5 rounded font-bold cursor-pointer bg-judicial-900 text-judicial-gold">📚 تصنيفات المكتبة</button>
+                <button type="button" onclick="selectTaxonomyTab('compassCategories')" id="taxTab-compassCategories" class="px-3 py-1.5 rounded font-bold cursor-pointer bg-white text-slate-700">🧭 تصنيفات البوصلة</button>
+                <button type="button" onclick="selectTaxonomyTab('defCategories')" id="taxTab-defCategories" class="px-3 py-1.5 rounded font-bold cursor-pointer bg-white text-slate-700">⚖️ تصنيفات الحيثيات</button>
+                <button type="button" onclick="selectTaxonomyTab('formCategories')" id="taxTab-formCategories" class="px-3 py-1.5 rounded font-bold cursor-pointer bg-white text-slate-700">📄 تصنيفات النماذج</button>
+                <button type="button" onclick="selectTaxonomyTab('sectors')" id="taxTab-sectors" class="px-3 py-1.5 rounded font-bold cursor-pointer bg-white text-slate-700">🏢 القطاعات والموضوعات</button>
+            </div>
+
+            <div class="flex gap-2 pt-1">
+                <input type="text" id="newTaxonomyItemInput" placeholder="اكتب اسم التصنيف أو القسم الجديد هنا..." class="flex-1 border-2 border-slate-300 focus:border-judicial-gold rounded-lg p-2 text-xs font-bold">
+                <button type="button" onclick="addTaxonomyItem()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-5 py-2 rounded-lg text-xs cursor-pointer shadow">+ إضافة التصنيف فوراً</button>
+            </div>
+
+            <div id="taxonomyItemsListContainer" class="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-64 overflow-y-auto custom-scroll pt-1"></div>
+        </div>
+    `;
+}
+
+window.selectTaxonomyTab = function(tabKey) {
+    activeTaxonomyTab = tabKey;
+    ['libCategories', 'compassCategories', 'defCategories', 'formCategories', 'sectors'].forEach(k => {
+        const btn = document.getElementById('taxTab-' + k);
+        if (btn) btn.className = k === tabKey ? "px-3 py-1.5 rounded font-bold cursor-pointer bg-judicial-900 text-judicial-gold shadow" : "px-3 py-1.5 rounded font-bold cursor-pointer bg-white text-slate-700 border";
+    });
+    renderTaxonomyManagerList();
+};
+
+function renderTaxonomyManagerList() {
+    const cont = document.getElementById('taxonomyItemsListContainer');
+    if (!cont) return;
+    const list = db[activeTaxonomyTab] || [];
+    cont.innerHTML = list.map((item, idx) => {
+        const isLockedAll = (activeTaxonomyTab === 'sectors' && item === 'الكل');
+        return `
+            <div class="flex justify-between items-center p-2.5 bg-slate-50 border rounded-lg hover:border-judicial-gold transition">
+                <span class="font-bold text-judicial-900 text-xs">${idx + 1}. ${escapeHTML(item)}</span>
+                ${isLockedAll ? `<span class="text-[10px] text-slate-400 font-bold">أساسي</span>` : `
+                <div class="flex gap-1.5">
+                    <button type="button" onclick="renameTaxonomyItem('${activeTaxonomyTab}', ${idx})" class="bg-amber-100 hover:bg-amber-200 text-amber-900 px-2.5 py-1 rounded text-[11px] font-bold cursor-pointer" title="تعديل الاسم"><i class="fa-solid fa-pen ml-1"></i>تعديل</button>
+                    <button type="button" onclick="deleteTaxonomyItem('${activeTaxonomyTab}', ${idx})" class="bg-red-100 hover:bg-red-200 text-red-700 px-2.5 py-1 rounded text-[11px] font-bold cursor-pointer" title="حذف"><i class="fa-solid fa-trash"></i></button>
+                </div>`}
+            </div>
+        `;
+    }).join('');
+}
+
+window.addTaxonomyItem = async function() {
+    if (!hasPerm('add') && currentUser?.role !== 'super_admin') return alert("لا تملك صلاحية الإضافة!");
+    const inp = document.getElementById('newTaxonomyItemInput');
+    const val = inp?.value.trim();
+    if (!val) return alert("يرجى كتابة اسم التصنيف أولاً!");
+    if (!Array.isArray(db[activeTaxonomyTab])) db[activeTaxonomyTab] = [];
+    if (db[activeTaxonomyTab].includes(val)) return alert("هذا التصنيف موجود بالفعل!");
+
+    db[activeTaxonomyTab].push(val);
+    inp.value = "";
+    await persistState("إضافة تصنيف", activeTaxonomyTab, val);
+    renderTaxonomyManagerList();
+    alert(`✅ تمت إضافة (${val}) بنجاح وظهر في الموقع فوراً!`);
+};
+
+window.renameTaxonomyItem = async function(taxKey, idx) {
+    if (!hasPerm('edit') && currentUser?.role !== 'super_admin') return alert("لا تملك صلاحية التعديل!");
+    const oldVal = db[taxKey][idx];
+    const newVal = prompt(`تعديل اسم التصنيف:\nالاسم الحالي: ${oldVal}\n\nاكتب الاسم الجديد:`, oldVal);
+    if (!newVal || !newVal.trim() || newVal.trim() === oldVal) return;
+    const cleanNew = newVal.trim();
+
+    db[taxKey][idx] = cleanNew;
+
+    // تحديث العناصر المرتبطة بالتصنيف القديم تلقائياً
+    if (taxKey === 'libCategories') (db.library || []).forEach(x => { if (x.category === oldVal) x.category = cleanNew; });
+    if (taxKey === 'compassCategories') (db.jurisdictions || []).forEach(x => { if (x.category === oldVal) x.category = cleanNew; });
+    if (taxKey === 'defCategories') (db.defenses || []).forEach(x => { if (x.category === oldVal) x.category = cleanNew; });
+    if (taxKey === 'formCategories') (db.forms || []).forEach(x => { if (x.category === oldVal) x.category = cleanNew; });
+    if (taxKey === 'sectors') {
+        ['library', 'defenses', 'checklists', 'forms'].forEach(col => {
+            (db[col] || []).forEach(x => { if (x.sector === oldVal) x.sector = cleanNew; });
+        });
+    }
+
+    await persistState("تعديل اسم تصنيف", taxKey, `${oldVal} -> ${cleanNew}`);
+    renderTaxonomyManagerList();
+    alert(`✅ تم تعديل التصنيف إلى (${cleanNew}) وتحديث كافة البطاقات المرتبطة به!`);
+};
+
+window.deleteTaxonomyItem = async function(taxKey, idx) {
+    if (!hasPerm('delete') && currentUser?.role !== 'super_admin') return alert("لا تملك صلاحية الحذف!");
+    const val = db[taxKey][idx];
+    if (!confirm(`هل أنت متأكد من حذف التصنيف (${val})؟`)) return;
+    db[taxKey].splice(idx, 1);
+    await persistState("حذف تصنيف", taxKey, val);
+    renderTaxonomyManagerList();
+};
+
+// ==========================================
+// محرك تطبيق الرقع السحابية المطور (يقبل التصنيفات، الإعدادات، والعناصر)
 // ==========================================
 window.applyCloudPatch = async function() {
     if (!hasPerm('manageUsers') && currentUser?.role !== 'super_admin') return alert("مخصص لمدير المنصة فقط.");
@@ -169,25 +335,29 @@ window.applyCloudPatch = async function() {
     if (!raw) return alert("يرجى لصق كود الرقعة بصيغة JSON أولاً!");
     try {
         const patch = JSON.parse(raw);
-        const shard = patch.targetShard || "config";
-        if (!SHARD_REFS[shard]) return alert("الشريحة المستهدفة غير صحيحة!");
+        let updatedAnything = false;
 
-        // تحديث التصنيفات والقطاعات والإعدادات إن وجدت في الرقعة
-        ['libCategories', 'compassCategories', 'defCategories', 'formCategories', 'sectors'].forEach(catKey => {
-            if (Array.isArray(patch[catKey])) {
+        // 1. دعم تحديث أي قائمة تصنيفات أو قطاعات أو إعدادات مباشرة
+        ['sectors', 'libCategories', 'compassCategories', 'defCategories', 'formCategories'].forEach(taxKey => {
+            if (Array.isArray(patch[taxKey])) {
                 if (patch.mode === "replace") {
-                    db[catKey] = patch[catKey];
+                    db[taxKey] = patch[taxKey];
                 } else {
-                    patch[catKey].forEach(c => { if (!db[catKey].includes(c)) db[catKey].push(c); });
+                    if (!Array.isArray(db[taxKey])) db[taxKey] = [];
+                    patch[taxKey].forEach(c => { if (!db[taxKey].includes(c)) db[taxKey].push(c); });
                 }
+                updatedAnything = true;
             }
         });
-        if (patch.branding) db.branding = { ...db.branding, ...patch.branding };
-        if (patch.settings) db.settings = { ...db.settings, ...patch.settings };
-        if (patch.workflowStages) db.workflowStages = { ...db.workflowStages, ...patch.workflowStages };
 
-        // تحديث مصفوفات العناصر القياسية (library, jurisdictions, defenses, checklists, forms, qayds)
-        if (shard !== "config" && shard !== "members" && Array.isArray(patch.items)) {
+        if (patch.branding && typeof patch.branding === 'object') {
+            db.branding = { ...db.branding, ...patch.branding };
+            updatedAnything = true;
+        }
+
+        // 2. دعم تحديث شرائح العناصر (library, defenses, jurisdictions, checklists, forms, qayds)
+        const shard = patch.targetShard;
+        if (shard && SHARD_REFS[shard] && Array.isArray(patch.items) && patch.items.length > 0) {
             if (patch.mode === "replace") {
                 db[shard] = patch.items;
             } else {
@@ -197,109 +367,16 @@ window.applyCloudPatch = async function() {
                     if (idx >= 0) db[shard][idx] = newItem; else db[shard].unshift(newItem);
                 });
             }
+            updatedAnything = true;
         }
 
-        await persistState(`تطبيق رقعة: ${patch.patchTitle || 'تحديث شامل'}`, shard);
-        alert(`✅ تم تطبيق الرقعة السحابية بنجاح وتحديث القوائم فوراً: ${patch.patchTitle || 'تحديث'}`);
+        if (!updatedAnything) return alert("لم يتم العثور على عناصر أو تصنيفات صالحة داخل كود الرقعة.");
+
+        await persistState(`تطبيق رقعة: ${patch.patchTitle || 'تحديث سحابي'}`, shard || 'config');
+        renderTaxonomyManagerList();
+        alert(`✅ تم تطبيق الرقعة السحابية بنجاح وتحديث واجهة الموقع فوراً:\n[${patch.patchTitle || 'تحديث فوري'}]`);
         document.getElementById('patchJsonInput').value = "";
     } catch (e) { alert("خطأ في تنسيق JSON: " + e.message); }
-};
-
-// ==========================================
-// إدارة التصنيفات الديناميكية لجميع أقسام الموقع
-// ==========================================
-function renderDynamicCategoryControls() {
-    // 1. قائمة تصنيفات المكتبة
-    const libSel = document.getElementById('libCategoryFilter');
-    if (libSel) {
-        const prev = libSel.value;
-        libSel.innerHTML = `<option value="الكل">كل التصنيفات</option>` + (db.libCategories || []).map(c => `<option value="${escapeHTML(c)}">${escapeHTML(c)}</option>`).join('');
-        if ((db.libCategories || []).includes(prev)) libSel.value = prev;
-    }
-
-    // 2. أزرار تصنيفات البوصلة الإجرائية
-    const compTabs = document.getElementById('encyclopediaTabs');
-    if (compTabs) {
-        compTabs.innerHTML = `<button type="button" onclick="filterCompassEncyclopedia('الكل')" data-compcat="الكل" class="compass-subtab ${currentCompassCat === 'الكل' ? 'compass-tab-active' : 'bg-slate-50'} px-2.5 py-1 rounded text-xs border cursor-pointer whitespace-nowrap">الكل</button>` +
-            (db.compassCategories || []).map(c => `<button type="button" onclick="filterCompassEncyclopedia('${escapeHTML(c)}')" data-compcat="${escapeHTML(c)}" class="compass-subtab ${currentCompassCat === c ? 'compass-tab-active' : 'bg-slate-50'} px-2.5 py-1 rounded text-xs border cursor-pointer whitespace-nowrap">${escapeHTML(c)}</button>`).join('');
-    }
-
-    // 3. أزرار تصنيفات الحيثيات والدفوع
-    const defTabsContainer = document.querySelector('#tab-defenses .flex.gap-1.overflow-x-auto');
-    if (defTabsContainer) {
-        defTabsContainer.innerHTML = `<button type="button" onclick="selectDefenseCategory('الكل')" data-defcat="الكل" class="def-subtab ${currentDefCategory === 'الكل' ? 'def-subtab-active' : 'bg-slate-100 text-slate-700'} px-3 py-1 rounded text-xs font-bold whitespace-nowrap cursor-pointer">الكل</button>` +
-            (db.defCategories || []).map(c => `<button type="button" onclick="selectDefenseCategory('${escapeHTML(c)}')" data-defcat="${escapeHTML(c)}" class="def-subtab ${currentDefCategory === c ? 'def-subtab-active' : 'bg-slate-100 text-slate-700'} px-3 py-1 rounded text-xs font-bold whitespace-nowrap cursor-pointer">${escapeHTML(c)}</button>`).join('');
-    }
-
-    // 4. قائمة تصنيفات النماذج الإجرائية
-    const formSel = document.getElementById('formCategoryFilter');
-    if (formSel) {
-        const prevF = formSel.value;
-        formSel.innerHTML = `<option value="الكل">كل النماذج</option>` + (db.formCategories || []).map(c => `<option value="${escapeHTML(c)}">${escapeHTML(c)}</option>`).join('');
-        if ((db.formCategories || []).includes(prevF)) formSel.value = prevF;
-    }
-
-    // 5. حقن مدير التصنيفات الشامل داخل تبويب "الإضافة المباشرة" في لوحة الإدارة
-    const quickAddView = document.getElementById('adm-QuickAdd');
-    if (quickAddView) {
-        quickAddView.className = "adm-view hidden space-y-4 text-xs";
-        quickAddView.innerHTML = `
-            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
-                <button type="button" onclick="openItemEditor('library')" class="p-3 border-2 border-judicial-gold/50 rounded-xl bg-amber-50/40 hover:bg-amber-100 font-bold cursor-pointer">+ إضافة كتاب للمكتبة</button>
-                <button type="button" onclick="openItemEditor('jurisdiction')" class="p-3 border-2 border-cyan-500/40 rounded-xl bg-cyan-50/40 hover:bg-cyan-100 font-bold cursor-pointer">+ قاعدة بالبوصلة</button>
-                <button type="button" onclick="openItemEditor('defense')" class="p-3 border-2 border-blue-500/40 rounded-xl bg-blue-50/40 hover:bg-blue-100 font-bold cursor-pointer">+ إضافة حيثية أو دفع</button>
-                <button type="button" onclick="openItemEditor('checklist')" class="p-3 border-2 border-emerald-500/40 rounded-xl bg-emerald-50/40 hover:bg-emerald-100 font-bold cursor-pointer">+ إضافة قائمة تحقيق</button>
-                <button type="button" onclick="openItemEditor('form')" class="p-3 border-2 border-rose-500/40 rounded-xl bg-rose-50/40 hover:bg-rose-100 font-bold cursor-pointer">+ إضافة نموذج إجرائي</button>
-            </div>
-            <div class="border-t pt-4">
-                <h4 class="font-extrabold text-sm text-judicial-900 mb-3"><i class="fa-solid fa-Folder-tree text-judicial-gold ml-1"></i> الإدارة الحية لجميع التصنيفات والقطاعات (إضافة / حذف بدون كود)</h4>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    ${buildCategoryManagerBox('libCategories', '1. تصنيفات المكتبة الرقمية')}
-                    ${buildCategoryManagerBox('compassCategories', '2. تصنيفات موسوعة البوصلة')}
-                    ${buildCategoryManagerBox('defCategories', '3. تصنيفات الحيثيات والدفوع')}
-                    ${buildCategoryManagerBox('formCategories', '4. تصنيفات النماذج والمآخذ')}
-                </div>
-            </div>`;
-    }
-}
-
-function buildCategoryManagerBox(arrayKey, title) {
-    const list = db[arrayKey] || [];
-    return `
-        <div class="p-3 bg-slate-50 border rounded-xl space-y-2">
-            <h5 class="font-bold text-judicial-900">${title}</h5>
-            <div class="flex gap-1.5">
-                <input type="text" id="input_${arrayKey}" placeholder="اسم التصنيف الجديد..." class="flex-1 border rounded p-1.5 bg-white text-xs">
-                <button type="button" onclick="addDynamicCategory('${arrayKey}')" class="bg-emerald-600 text-white px-3 py-1 rounded font-bold cursor-pointer">+ إضافة</button>
-            </div>
-            <div class="flex flex-wrap gap-1.5 pt-1 max-h-28 overflow-y-auto custom-scroll">
-                ${list.map((c, i) => `
-                    <span class="inline-flex items-center gap-1.5 bg-white border px-2.5 py-1 rounded-full text-[11px] font-semibold">
-                        ${escapeHTML(c)}
-                        <button type="button" onclick="removeDynamicCategory('${arrayKey}', ${i})" class="text-red-600 hover:text-red-800 font-bold cursor-pointer" title="حذف">×</button>
-                    </span>`).join('')}
-            </div>
-        </div>`;
-}
-
-window.addDynamicCategory = async function(arrayKey) {
-    if (!hasPerm('add') && currentUser?.role !== 'super_admin') return alert("لا تملك صلاحية الإضافة.");
-    const inp = document.getElementById(`input_${arrayKey}`);
-    const val = inp?.value.trim();
-    if (!val) return alert("اكتب اسم التصنيف أولاً!");
-    if (!Array.isArray(db[arrayKey])) db[arrayKey] = [];
-    if (db[arrayKey].includes(val)) return alert("هذا التصنيف موجود بالفعل!");
-    db[arrayKey].push(val);
-    inp.value = "";
-    await persistState("إضافة تصنيف جديد", arrayKey, val);
-};
-
-window.removeDynamicCategory = async function(arrayKey, idx) {
-    if (!hasPerm('delete') && currentUser?.role !== 'super_admin') return alert("لا تملك صلاحية الحذف.");
-    const name = db[arrayKey][idx];
-    if (!confirm(`هل أنت متأكد من حذف التصنيف (${name})؟`)) return;
-    db[arrayKey].splice(idx, 1);
-    await persistState("حذف تصنيف", arrayKey, name);
 };
 
 window.syncProceduralCompassData = async function() {
@@ -307,7 +384,6 @@ window.syncProceduralCompassData = async function() {
     if (!confirm("تحديث البوصلة والموسوعة إلى طبعة القرارين 517 و518 لسنة 2026 سحابياً؟")) return;
     db.branding.footerInstructions = "التعليمات القضائية للنيابة الإدارية ولجان التأديب والتظلمات - معدلة بالقرارين 517 و518 لسنة 2026 النافذين 14/11/2026";
     db.jurisdictions = NOV_2026_ENCYCLOPEDIA;
-    db.workflowStages = JSON.parse(JSON.stringify(WORKFLOW_STAGES));
     await persistState("تحديث القرارين 517 و518", "البوصلة الإجرائية", "دمج التعديلات");
     alert("✅ تم التحديث سحابياً بنجاح!");
 };
@@ -325,7 +401,7 @@ window.executeGlobalSearch = function() {
     (db.defenses || []).forEach(d => { if (`${d.title} ${d.response} ${d.category}`.toLowerCase().includes(q)) res.push({ s: d.category, t: d.title, b: isApprovedMember() ? d.response : d.response.substring(0, 90) + "..." }); });
     if (isApprovedMember()) {
         (db.checklists || []).forEach(c => { if (`${c.title} ${(c.docs||[]).join(' ')}`.toLowerCase().includes(q)) res.push({ s: "قوائم التحقيق", t: c.title, b: (c.docs||[]).join(' - ') }); });
-        (db.forms || []).forEach(f => { if (`${f.title} ${f.content} ${f.category}`.toLowerCase().includes(q)) res.push({ s: `النماذج (${f.category})`, t: f.title, b: f.content }); });
+        (db.forms || []).forEach(f => { if (`${f.title} ${f.content}`.toLowerCase().includes(q)) res.push({ s: "النماذج", t: f.title, b: f.content }); });
         (db.qayds || []).forEach(qd => { if (`${qd.title} ${qd.wasf} ${qd.articles}`.toLowerCase().includes(q)) res.push({ s: "القيود والأوصاف", t: qd.title, b: `${qd.articles}\n${qd.wasf}` }); });
     }
     document.getElementById('searchCountBadge').innerText = res.length;
@@ -356,25 +432,20 @@ window.switchStageStep = function(stepNum) {
 function renderCurrentStage() {
     const panel = document.getElementById('stageContentPanel');
     if (!panel) return;
-    const stagesSource = db.workflowStages || WORKFLOW_STAGES;
-    const s = stagesSource[currentWorkflowStage] || WORKFLOW_STAGES[currentWorkflowStage];
-    const ce = hasPerm('edit');
+    const s = WORKFLOW_STAGES[currentWorkflowStage];
     panel.innerHTML = `
         <div class="space-y-4">
             <div class="border-b pb-2 flex flex-wrap justify-between items-center gap-2">
                 <h3 class="font-bold text-judicial-900 text-sm flex items-center gap-2"><span class="w-6 h-6 rounded-full bg-judicial-900 text-judicial-gold flex items-center justify-center text-xs font-bold">${currentWorkflowStage}</span>${s.title}</h3>
-                <div class="flex items-center gap-2">
-                    ${ce ? `<button type="button" onclick="openItemEditor('stage', '${currentWorkflowStage}')" class="bg-amber-100 text-amber-900 px-2.5 py-1 rounded text-xs font-bold cursor-pointer"><i class="fa-solid fa-pen ml-1"></i> تعديل نصوص المحطة</button>` : ''}
-                    <span class="text-[11px] text-slate-400 font-bold">طبعة القرارين 517 و518 لسنة 2026</span>
-                </div>
+                <span class="text-[11px] text-slate-400 font-bold">طبعة القرارين 517 و518 لسنة 2026</span>
             </div>
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-3">
                 <div class="lg:col-span-5 bg-amber-50/60 border border-judicial-gold/40 rounded-xl p-3.5 space-y-2.5">
                     <h4 class="font-bold text-judicial-900 text-xs border-b border-judicial-gold/30 pb-1">الضوابط والواجبات الإلزامية للمحقق:</h4>
-                    <div class="space-y-2 text-xs leading-relaxed text-slate-800">${(s.goldenRules || []).map(r => `<div class="flex items-start gap-2 bg-white/80 p-2 rounded-lg border border-slate-200"><i class="fa-solid fa-circle-check text-emerald-600 text-xs mt-0.5"></i><span>${cleanLegalString(r)}</span></div>`).join('')}</div>
+                    <div class="space-y-2 text-xs leading-relaxed text-slate-800">${s.goldenRules.map(r => `<div class="flex items-start gap-2 bg-white/80 p-2 rounded-lg border border-slate-200"><i class="fa-solid fa-circle-check text-emerald-600 text-xs mt-0.5"></i><span>${cleanLegalString(r)}</span></div>`).join('')}</div>
                 </div>
                 <div class="lg:col-span-7 bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex flex-col justify-between space-y-3">
-                    <div class="space-y-2"><h4 class="font-bold text-judicial-900 text-xs border-b pb-1">${s.toolTitle}</h4><div class="space-y-1.5">${(s.toolOptions || []).map(opt => `<div class="p-2.5 bg-white rounded-lg border text-xs"><strong class="text-judicial-900 block mb-0.5">${opt.label}</strong><p class="text-slate-600 text-[11px]">${cleanLegalString(opt.desc)}</p></div>`).join('')}</div></div>
+                    <div class="space-y-2"><h4 class="font-bold text-judicial-900 text-xs border-b pb-1">${s.toolTitle}</h4><div class="space-y-1.5">${s.toolOptions.map(opt => `<div class="p-2.5 bg-white rounded-lg border text-xs"><strong class="text-judicial-900 block mb-0.5">${opt.label}</strong><p class="text-slate-600 text-[11px]">${cleanLegalString(opt.desc)}</p></div>`).join('')}</div></div>
                     <div class="bg-judicial-900 text-white p-3 rounded-xl border border-judicial-gold/60 space-y-1.5">
                         <div class="flex justify-between items-center border-b border-slate-700 pb-1"><span class="text-[11px] font-bold text-judicial-gold">${s.copySnippetTitle}</span><button type="button" onclick="copySnippetText('snip-${currentWorkflowStage}')" class="bg-judicial-gold text-judicial-950 font-extrabold px-2.5 py-0.5 rounded text-[10px] cursor-pointer">نسخ الصيغة</button></div>
                         <p id="snip-${currentWorkflowStage}" class="font-serif text-xs leading-relaxed text-slate-200 whitespace-pre-line">${cleanLegalString(s.copySnippet)}</p>
@@ -387,7 +458,7 @@ window.copySnippetText = id => { const t = document.getElementById(id)?.innerTex
 
 window.filterCompassEncyclopedia = function(cat) {
     currentCompassCat = cat;
-    renderDynamicCategoryControls();
+    syncDynamicTaxonomiesUI();
     renderCompassEncyclopedia();
 };
 
@@ -519,7 +590,7 @@ window.renderLibrarySection = function() {
                 <p class="text-xs text-slate-600 mb-2 leading-relaxed">${cleanLegalString(b.description)}</p>
             </div>
             <div class="pt-2 border-t flex justify-between items-center text-xs"><span class="text-[10px] text-slate-400 font-bold">${b.sector}</span>${b.driveUrl ? `<button type="button" onclick="openPdfViewer('${b.id}')" class="bg-judicial-900 text-judicial-gold font-bold px-3 py-1 rounded cursor-pointer">تصفح 📖</button>` : `<button type="button" onclick="addToBasket('${b.title}', \`${b.description}\`)" class="bg-slate-100 text-slate-700 font-bold px-2.5 py-1 rounded cursor-pointer">+ مسودة</button>`}</div>
-        </div>`).join('') : `<div class="col-span-3 bg-white p-6 rounded-xl text-center text-slate-400 text-xs">لا توجد كتب في هذا التصنيف حالياً. يمكنك الإضافة من زر (+ إضافة كتاب).</div>`;
+        </div>`).join('') : `<div class="col-span-3 bg-white p-6 rounded-xl text-center text-slate-400 text-xs">لا توجد كتب في هذا التصنيف حالياً. اضغط (+ إضافة كتاب) لإدراج ملف جديد.</div>`;
 };
 
 function extractDriveFileId(url) { if (!url) return null; const m = url.match(/\/d\/([a-zA-Z0-9_-]+)/) || url.match(/id=([a-zA-Z0-9_-]+)/); return m ? m[1] : null; }
@@ -534,7 +605,7 @@ window.closePdfViewer = () => { document.getElementById('pdfIframe').src = ""; d
 
 window.selectDefenseCategory = function(cat) {
     currentDefCategory = cat;
-    renderDynamicCategoryControls();
+    syncDynamicTaxonomiesUI();
     renderDefensesSection();
 };
 
@@ -572,13 +643,15 @@ window.renderChecklistsSection = function() {
 };
 
 window.renderSelectedChecklist = function() {
-    const selVal = document.getElementById('checklistSelector')?.value;
-    const data = (db.checklists || []).find(c => c.id === selVal);
+    const data = (db.checklists || []).find(c => c.id === document.getElementById('checklistSelector').value);
     const cont = document.getElementById('checklistContainer');
+    const canEd = hasPerm('edit');
     if (!data) { cont.innerHTML = `<div class="col-span-2 bg-white p-6 rounded-xl text-center text-slate-400 text-xs">لا توجد قوائم في هذا القطاع.</div>`; return; }
-    const ce = hasPerm('edit');
     cont.innerHTML = `
-        ${ce ? `<div class="col-span-1 lg:col-span-2 flex justify-end"><button type="button" onclick="openItemEditor('checklist','${data.id}')" class="bg-amber-100 text-amber-900 px-3 py-1 rounded-lg text-xs font-bold cursor-pointer"><i class="fa-solid fa-pen ml-1"></i> تعديل هذه القائمة</button></div>` : ''}
+        <div class="col-span-1 lg:col-span-2 flex justify-between items-center bg-slate-100 px-3 py-1.5 rounded-lg border">
+            <span class="font-bold text-xs text-judicial-900">القائمة المعروضة: ${escapeHTML(data.title)}</span>
+            ${canEd ? `<button type="button" onclick="openItemEditor('checklist','${data.id}')" class="bg-amber-500 text-judicial-950 font-bold px-3 py-1 rounded text-xs cursor-pointer"><i class="fa-solid fa-pen ml-1"></i> تعديل بنود هذه القائمة</button>` : ''}
+        </div>
         <div class="bg-white p-3.5 rounded-xl shadow-sm border-t-4 border-judicial-900"><h3 class="font-bold text-xs mb-2">أولاً: المستندات المطلوبة:</h3><div class="space-y-1.5">${(data.docs||[]).map(d => `<label class="flex items-start gap-2 text-xs"><input type="checkbox" class="chk-item mt-0.5"><span>${d}</span></label>`).join('')}</div></div>
         <div class="bg-white p-3.5 rounded-xl shadow-sm border-t-4 border-blue-700"><h3 class="font-bold text-xs mb-2">ثانياً: أسئلة الشهود:</h3><div class="space-y-1.5">${(data.witness_q||[]).map(q => `<label class="flex items-start gap-2 text-xs font-semibold"><input type="checkbox" class="chk-item mt-0.5"><span>"${q}"</span></label>`).join('')}</div></div>
         <div class="bg-white p-3.5 rounded-xl shadow-sm border-t-4 border-red-700"><h3 class="font-bold text-xs mb-2">ثالثاً: أسئلة المواجهة:</h3><div class="space-y-1.5">${(data.accused_q||[]).map(q => `<label class="flex items-start gap-2 text-xs font-semibold"><input type="checkbox" class="chk-item mt-0.5"><span>"${q}"</span></label>`).join('')}</div></div>
@@ -606,8 +679,24 @@ window.renderFormsSection = function() {
 };
 
 // ==========================================
-// محرر العناصر الشامل (يقرأ التصنيفات ديناميكياً + يتيح إضافة تصنيف فوري)
+// محرر العناصر الشامل (يقرأ التصنيفات ديناميكياً + يتيح إنشاء تصنيف فوري أثناء الإضافة)
 // ==========================================
+window.promptQuickCategory = async function(taxKey, selectId) {
+    const val = prompt("اكتب اسم التصنيف الجديد لإضافته فوراً:");
+    if (!val || !val.trim()) return;
+    const clean = val.trim();
+    if (!Array.isArray(db[taxKey])) db[taxKey] = [];
+    if (!db[taxKey].includes(clean)) {
+        db[taxKey].push(clean);
+        await persistState("إضافة تصنيف سريع", taxKey, clean);
+    }
+    const sel = document.getElementById(selectId);
+    if (sel) {
+        sel.innerHTML = db[taxKey].map(c => `<option value="${escapeHTML(c)}">${escapeHTML(c)}</option>`).join('');
+        sel.value = clean;
+    }
+};
+
 window.openItemEditor = function(type, editId = null) {
     if (editId && !hasPerm('edit')) return alert("لا تملك صلاحية التعديل!");
     if (!editId && !hasPerm('add')) return alert("لا تملك صلاحية الإضافة!");
@@ -622,77 +711,79 @@ window.openItemEditor = function(type, editId = null) {
     if (type === 'library') {
         const item = editId ? db.library.find(b => b.id === editId) : { sector: currentSector, category: db.libCategories[0] || "مؤلفات السادة المستشارين", title: "", author: "", description: "", driveUrl: "" };
         titleEl.innerText = "إضافة / تعديل كتاب أو ملف بالمكتبة";
-        bodyEl.innerHTML = `<div class="grid grid-cols-2 gap-2"><div>القطاع:<select id="ed_sector" class="w-full border rounded p-1.5">${sectorOptions}</select></div><div>التصنيف (أو اكتب تصنيفاً جديداً بالأسفل):<select id="ed_category" class="w-full border rounded p-1.5 font-bold">${libCatOptions}</select></div></div><div>تصنيف جديد (اختياري - يُضاف تلقائياً للقائمة):<input type="text" id="ed_new_cat" placeholder="اتركه فارغاً أو اكتب تصنيفاً جديداً هنا..." class="w-full border border-emerald-400 bg-emerald-50/40 rounded p-1.5"></div><div>العنوان:<input type="text" id="ed_title" value="${escapeHTML(item.title)}" class="w-full border rounded p-1.5"></div><div>المؤلف:<input type="text" id="ed_author" value="${escapeHTML(item.author)}" class="w-full border rounded p-1.5"></div><div>الملخص:<textarea id="ed_desc" rows="3" class="w-full border rounded p-1.5">${escapeHTML(item.description)}</textarea></div><div>رابط Google Drive:<input type="url" id="ed_drive" value="${escapeHTML(item.driveUrl || '')}" class="w-full border rounded p-1.5 font-mono"></div>`;
+        bodyEl.innerHTML = `
+            <div class="grid grid-cols-2 gap-2">
+                <div><div class="flex justify-between mb-1"><span>القطاع:</span><button type="button" onclick="promptQuickCategory('sectors','ed_sector')" class="text-emerald-700 font-bold">+ قطاع جديد</button></div><select id="ed_sector" class="w-full border rounded p-1.5 font-bold">${sectorOptions}</select></div>
+                <div><div class="flex justify-between mb-1"><span>التصنيف:</span><button type="button" onclick="promptQuickCategory('libCategories','ed_category')" class="text-emerald-700 font-bold">+ تصنيف جديد</button></div><select id="ed_category" class="w-full border rounded p-1.5 font-bold">${libCatOptions}</select></div>
+            </div>
+            <div>العنوان:<input type="text" id="ed_title" value="${escapeHTML(item.title)}" class="w-full border rounded p-1.5 font-bold"></div>
+            <div>المؤلف / المصدر:<input type="text" id="ed_author" value="${escapeHTML(item.author)}" class="w-full border rounded p-1.5"></div>
+            <div>الملخص أو الوصف:<textarea id="ed_desc" rows="3" class="w-full border rounded p-1.5">${escapeHTML(item.description)}</textarea></div>
+            <div>رابط Google Drive (اختياري):<input type="url" id="ed_drive" value="${escapeHTML(item.driveUrl || '')}" class="w-full border rounded p-1.5 font-mono"></div>`;
         document.getElementById('ed_sector').value = item.sector; document.getElementById('ed_category').value = item.category;
     } else if (type === 'jurisdiction') {
         const item = editId ? db.jurisdictions.find(j => j.id === editId) : { category: db.compassCategories[0] || "الاختصاص والطلب", title: "", content: "", ref: "" };
-        titleEl.innerText = "قاعدة بالبوصلة والموسوعة";
-        bodyEl.innerHTML = `<div>التصنيف:<select id="ed_category" class="w-full border rounded p-1.5 font-bold">${compCatOptions}</select></div><div>تصنيف جديد (اختياري):<input type="text" id="ed_new_cat" placeholder="أو اكتب تصنيفاً جديداً للبوصلة..." class="w-full border border-emerald-400 bg-emerald-50/40 rounded p-1.5"></div><div>العنوان:<input type="text" id="ed_title" value="${escapeHTML(item.title)}" class="w-full border rounded p-1.5"></div><div>النص:<textarea id="ed_content" rows="4" class="w-full border rounded p-1.5">${escapeHTML(item.content)}</textarea></div><div>السند:<input type="text" id="ed_ref" value="${escapeHTML(item.ref)}" class="w-full border rounded p-1.5"></div>`;
+        titleEl.innerText = "إضافة / تعديل قاعدة بالبوصلة والموسوعة";
+        bodyEl.innerHTML = `
+            <div><div class="flex justify-between mb-1"><span>التصنيف بالبوصلة:</span><button type="button" onclick="promptQuickCategory('compassCategories','ed_category')" class="text-emerald-700 font-bold">+ تصنيف جديد</button></div><select id="ed_category" class="w-full border rounded p-1.5 font-bold">${compCatOptions}</select></div>
+            <div>العنوان:<input type="text" id="ed_title" value="${escapeHTML(item.title)}" class="w-full border rounded p-1.5 font-bold"></div>
+            <div>النص والقاعدة:<textarea id="ed_content" rows="4" class="w-full border rounded p-1.5">${escapeHTML(item.content)}</textarea></div>
+            <div>السند القانوني:<input type="text" id="ed_ref" value="${escapeHTML(item.ref)}" class="w-full border rounded p-1.5"></div>`;
         document.getElementById('ed_category').value = item.category;
     } else if (type === 'defense') {
         const item = editId ? db.defenses.find(d => d.id === editId) : { sector: currentSector, category: db.defCategories[0] || "حيثيات الحفظ القطعي", title: "", response: "", ref: "", contributor: currentUser?.name || "إدارة المنصة" };
-        titleEl.innerText = "حيثية / رد على دفع";
-        bodyEl.innerHTML = `<div class="grid grid-cols-3 gap-2"><div>القطاع:<select id="ed_sector" class="w-full border rounded p-1.5">${sectorOptions}</select></div><div>التصنيف:<select id="ed_category" class="w-full border rounded p-1.5 font-bold">${defCatOptions}</select></div><div>المساهم:<input type="text" id="ed_contrib" value="${escapeHTML(item.contributor)}" class="w-full border rounded p-1.5"></div></div><div>تصنيف جديد (اختياري):<input type="text" id="ed_new_cat" placeholder="أو اكتب تصنيفاً جديداً للحيثيات..." class="w-full border border-emerald-400 bg-emerald-50/40 rounded p-1.5"></div><div>العنوان:<input type="text" id="ed_title" value="${escapeHTML(item.title)}" class="w-full border rounded p-1.5"></div><div>النص:<textarea id="ed_response" rows="5" class="w-full border rounded p-1.5">${escapeHTML(item.response)}</textarea></div><div>السند:<input type="text" id="ed_ref" value="${escapeHTML(item.ref)}" class="w-full border rounded p-1.5"></div>`;
+        titleEl.innerText = "إضافة / تعديل حيثية أو رد على دفع";
+        bodyEl.innerHTML = `
+            <div class="grid grid-cols-3 gap-2">
+                <div><div class="flex justify-between mb-1"><span>القطاع:</span><button type="button" onclick="promptQuickCategory('sectors','ed_sector')" class="text-emerald-700 font-bold">+ جديد</button></div><select id="ed_sector" class="w-full border rounded p-1.5">${sectorOptions}</select></div>
+                <div><div class="flex justify-between mb-1"><span>التصنيف:</span><button type="button" onclick="promptQuickCategory('defCategories','ed_category')" class="text-emerald-700 font-bold">+ جديد</button></div><select id="ed_category" class="w-full border rounded p-1.5">${defCatOptions}</select></div>
+                <div><div class="mb-1">المساهم:</div><input type="text" id="ed_contrib" value="${escapeHTML(item.contributor)}" class="w-full border rounded p-1.5"></div>
+            </div>
+            <div>العنوان:<input type="text" id="ed_title" value="${escapeHTML(item.title)}" class="w-full border rounded p-1.5 font-bold"></div>
+            <div>نص الحيثية:<textarea id="ed_response" rows="5" class="w-full border rounded p-1.5">${escapeHTML(item.response)}</textarea></div>
+            <div>السند:<input type="text" id="ed_ref" value="${escapeHTML(item.ref)}" class="w-full border rounded p-1.5"></div>`;
         document.getElementById('ed_sector').value = item.sector; document.getElementById('ed_category').value = item.category;
     } else if (type === 'checklist') {
         const item = editId ? ((db.checklists||[]).find(c => c.id === editId) || { sector: "الكل", title: "", docs: [], witness_q: [], accused_q: [], tips: [] }) : { sector: "الكل", title: "", docs: [], witness_q: [], accused_q: [], tips: [] };
-        titleEl.innerText = "قائمة فحص وتحقيق";
-        bodyEl.innerHTML = `<div>القطاع:<select id="ed_sector" class="w-full border rounded p-1.5 font-bold">${sectorOptions}</select></div><div>قطاع جديد (اختياري):<input type="text" id="ed_new_cat" placeholder="أو اكتب اسم قطاع جديد..." class="w-full border border-emerald-400 bg-emerald-50/40 rounded p-1.5"></div><div>العنوان:<input type="text" id="ed_title" value="${escapeHTML(item.title)}" class="w-full border rounded p-1.5"></div><div>المستندات (سطر لكل مستند):<textarea id="ed_docs" rows="2" class="w-full border rounded p-1.5">${escapeHTML((item.docs||[]).join('\n'))}</textarea></div><div>أسئلة الشهود:<textarea id="ed_witness" rows="2" class="w-full border rounded p-1.5">${escapeHTML((item.witness_q||[]).join('\n'))}</textarea></div><div>أسئلة المواجهة:<textarea id="ed_accused" rows="2" class="w-full border rounded p-1.5">${escapeHTML((item.accused_q||[]).join('\n'))}</textarea></div><div>ضوابط فنية:<textarea id="ed_tips" rows="2" class="w-full border rounded p-1.5">${escapeHTML((item.tips||[]).join('\n'))}</textarea></div>`;
+        titleEl.innerText = "إضافة / تعديل قائمة فحص وتحقيق";
+        bodyEl.innerHTML = `
+            <div><div class="flex justify-between mb-1"><span>القطاع:</span><button type="button" onclick="promptQuickCategory('sectors','ed_sector')" class="text-emerald-700 font-bold">+ قطاع جديد</button></div><select id="ed_sector" class="w-full border rounded p-1.5 font-bold">${sectorOptions}</select></div>
+            <div>عنوان القائمة:<input type="text" id="ed_title" value="${escapeHTML(item.title)}" class="w-full border rounded p-1.5 font-bold"></div>
+            <div>المستندات المطلوبة (سطر لكل مستند):<textarea id="ed_docs" rows="3" class="w-full border rounded p-1.5">${(item.docs||[]).join('\n')}</textarea></div>
+            <div>أسئلة الشهود (سطر لكل سؤال):<textarea id="ed_witness" rows="3" class="w-full border rounded p-1.5">${(item.witness_q||[]).join('\n')}</textarea></div>
+            <div>أسئلة مواجهة المتهم (سطر لكل سؤال):<textarea id="ed_accused" rows="3" class="w-full border rounded p-1.5">${(item.accused_q||[]).join('\n')}</textarea></div>
+            <div>ضوابط فنية وملاحظات:<textarea id="ed_tips" rows="2" class="w-full border rounded p-1.5">${(item.tips||[]).join('\n')}</textarea></div>`;
         document.getElementById('ed_sector').value = item.sector;
     } else if (type === 'form') {
         const item = editId ? db.forms.find(f => f.id === editId) : { sector: "الكل", category: db.formCategories[0] || "ديباجات محاضر التحقيق والاطلاع", title: "", content: "" };
-        titleEl.innerText = "نموذج إجرائي";
-        bodyEl.innerHTML = `<div>التصنيف:<select id="ed_category" class="w-full border rounded p-1.5 font-bold">${formCatOptions}</select></div><div>تصنيف جديد (اختياري):<input type="text" id="ed_new_cat" placeholder="أو اكتب تصنيفاً جديداً للنماذج..." class="w-full border border-emerald-400 bg-emerald-50/40 rounded p-1.5"></div><div>العنوان:<input type="text" id="ed_title" value="${escapeHTML(item.title)}" class="w-full border rounded p-1.5"></div><div>النص:<textarea id="ed_content" rows="6" class="w-full border rounded p-1.5">${escapeHTML(item.content)}</textarea></div>`;
+        titleEl.innerText = "إضافة / تعديل نموذج أو مأخذ قضائي";
+        bodyEl.innerHTML = `
+            <div><div class="flex justify-between mb-1"><span>التصنيف:</span><button type="button" onclick="promptQuickCategory('formCategories','ed_category')" class="text-emerald-700 font-bold">+ تصنيف جديد</button></div><select id="ed_category" class="w-full border rounded p-1.5 font-bold">${formCatOptions}</select></div>
+            <div>العنوان:<input type="text" id="ed_title" value="${escapeHTML(item.title)}" class="w-full border rounded p-1.5 font-bold"></div>
+            <div>النص:<textarea id="ed_content" rows="6" class="w-full border rounded p-1.5">${escapeHTML(item.content)}</textarea></div>`;
         document.getElementById('ed_category').value = item.category;
-    } else if (type === 'stage') {
-        const stagesSource = db.workflowStages || WORKFLOW_STAGES;
-        const s = stagesSource[editId] || WORKFLOW_STAGES[editId];
-        titleEl.innerText = `تعديل نصوص المحطة ${editId} بالبوصلة`;
-        bodyEl.innerHTML = `<div>عنوان المحطة:<input type="text" id="ed_title" value="${escapeHTML(s.title)}" class="w-full border rounded p-1.5 font-bold"></div><div>الضوابط الإلزامية (سطر لكل ضابط):<textarea id="ed_rules" rows="4" class="w-full border rounded p-1.5">${escapeHTML((s.goldenRules||[]).join('\n'))}</textarea></div><div>عنوان الصيغة الجاهزة للنسخ:<input type="text" id="ed_snip_title" value="${escapeHTML(s.copySnippetTitle)}" class="w-full border rounded p-1.5"></div><div>نص الصيغة الجاهزة للنسخ:<textarea id="ed_snip_body" rows="4" class="w-full border rounded p-1.5">${escapeHTML(s.copySnippet)}</textarea></div>`;
     }
     toggleModal('itemEditorModal');
 };
 
 window.saveEditorItem = async function() {
-    const { type, editId } = currentEditorContext;
-    const title = document.getElementById('ed_title')?.value.trim();
+    const { type, editId } = currentEditorContext, title = document.getElementById('ed_title').value.trim();
     if (!title) return alert("يرجى إدخال العنوان!");
-
-    const customCat = document.getElementById('ed_new_cat')?.value.trim();
-
     if (type === 'library') {
-        const finalCat = customCat || document.getElementById('ed_category').value;
-        if (customCat && !db.libCategories.includes(customCat)) db.libCategories.push(customCat);
-        const obj = { id: editId || "lib_" + Date.now(), sector: document.getElementById('ed_sector').value, category: finalCat, title: cleanLegalString(title), author: cleanLegalString(document.getElementById('ed_author').value.trim()), description: cleanLegalString(document.getElementById('ed_desc').value.trim()), driveUrl: document.getElementById('ed_drive').value.trim() };
+        const obj = { id: editId || "lib_" + Date.now(), sector: document.getElementById('ed_sector').value, category: document.getElementById('ed_category').value, title: cleanLegalString(title), author: cleanLegalString(document.getElementById('ed_author').value.trim()), description: cleanLegalString(document.getElementById('ed_desc').value.trim()), driveUrl: document.getElementById('ed_drive').value.trim() };
         if (editId) db.library[db.library.findIndex(b => b.id === editId)] = obj; else db.library.unshift(obj);
     } else if (type === 'jurisdiction') {
-        const finalCat = customCat || document.getElementById('ed_category').value;
-        if (customCat && !db.compassCategories.includes(customCat)) db.compassCategories.push(customCat);
-        const obj = { id: editId || "enc_" + Date.now(), category: finalCat, title: cleanLegalString(title), content: cleanLegalString(document.getElementById('ed_content').value.trim()), ref: cleanLegalString(document.getElementById('ed_ref').value.trim()) };
+        const obj = { id: editId || "enc_" + Date.now(), category: document.getElementById('ed_category').value, title: cleanLegalString(title), content: cleanLegalString(document.getElementById('ed_content').value.trim()), ref: cleanLegalString(document.getElementById('ed_ref').value.trim()) };
         if (editId) db.jurisdictions[db.jurisdictions.findIndex(j => j.id === editId)] = obj; else db.jurisdictions.unshift(obj);
     } else if (type === 'defense') {
-        const finalCat = customCat || document.getElementById('ed_category').value;
-        if (customCat && !db.defCategories.includes(customCat)) db.defCategories.push(customCat);
-        const obj = { id: editId || "def_" + Date.now(), sector: document.getElementById('ed_sector').value, category: finalCat, title: cleanLegalString(title), response: cleanLegalString(document.getElementById('ed_response').value.trim()), ref: cleanLegalString(document.getElementById('ed_ref').value.trim()), contributor: document.getElementById('ed_contrib').value.trim() };
+        const obj = { id: editId || "def_" + Date.now(), sector: document.getElementById('ed_sector').value, category: document.getElementById('ed_category').value, title: cleanLegalString(title), response: cleanLegalString(document.getElementById('ed_response').value.trim()), ref: cleanLegalString(document.getElementById('ed_ref').value.trim()), contributor: document.getElementById('ed_contrib').value.trim() };
         if (editId) db.defenses[db.defenses.findIndex(d => d.id === editId)] = obj; else db.defenses.unshift(obj);
     } else if (type === 'checklist') {
-        const finalSec = customCat || document.getElementById('ed_sector').value;
-        if (customCat && !db.sectors.includes(customCat)) db.sectors.push(customCat);
-        const obj = { id: editId || "chk_" + Date.now(), sector: finalSec, title: cleanLegalString(title), docs: document.getElementById('ed_docs').value.split('\n').map(s=>cleanLegalString(s.trim())).filter(Boolean), witness_q: document.getElementById('ed_witness').value.split('\n').map(s=>cleanLegalString(s.trim())).filter(Boolean), accused_q: document.getElementById('ed_accused').value.split('\n').map(s=>cleanLegalString(s.trim())).filter(Boolean), tips: document.getElementById('ed_tips').value.split('\n').map(s=>cleanLegalString(s.trim())).filter(Boolean) };
+        const obj = { id: editId || "chk_" + Date.now(), sector: document.getElementById('ed_sector').value, title: cleanLegalString(title), docs: document.getElementById('ed_docs').value.split('\n').map(s=>cleanLegalString(s.trim())).filter(Boolean), witness_q: document.getElementById('ed_witness').value.split('\n').map(s=>cleanLegalString(s.trim())).filter(Boolean), accused_q: document.getElementById('ed_accused').value.split('\n').map(s=>cleanLegalString(s.trim())).filter(Boolean), tips: document.getElementById('ed_tips').value.split('\n').map(s=>cleanLegalString(s.trim())).filter(Boolean) };
         if (editId) db.checklists[db.checklists.findIndex(c => c.id === editId)] = obj; else db.checklists.unshift(obj);
     } else if (type === 'form') {
-        const finalCat = customCat || document.getElementById('ed_category').value;
-        if (customCat && !db.formCategories.includes(customCat)) db.formCategories.push(customCat);
-        const obj = { id: editId || "form_" + Date.now(), sector: "الكل", category: finalCat, title: cleanLegalString(title), content: cleanLegalString(document.getElementById('ed_content').value.trim()) };
+        const obj = { id: editId || "form_" + Date.now(), sector: "الكل", category: document.getElementById('ed_category').value, title: cleanLegalString(title), content: cleanLegalString(document.getElementById('ed_content').value.trim()) };
         if (editId) db.forms[db.forms.findIndex(f => f.id === editId)] = obj; else db.forms.unshift(obj);
-    } else if (type === 'stage') {
-        if (!db.workflowStages) db.workflowStages = JSON.parse(JSON.stringify(WORKFLOW_STAGES));
-        const curStage = db.workflowStages[editId] || WORKFLOW_STAGES[editId];
-        curStage.title = cleanLegalString(title);
-        curStage.goldenRules = document.getElementById('ed_rules').value.split('\n').map(s => cleanLegalString(s.trim())).filter(Boolean);
-        curStage.copySnippetTitle = cleanLegalString(document.getElementById('ed_snip_title').value.trim());
-        curStage.copySnippet = cleanLegalString(document.getElementById('ed_snip_body').value.trim());
-        db.workflowStages[editId] = curStage;
     }
     toggleModal('itemEditorModal');
     await persistState(editId ? "تعديل" : "إضافة", type, title);
@@ -858,7 +949,7 @@ window.approveContribution = async idx => {
     if (item.sectionTarget === 'defenses') db.defenses.unshift({ id: "def_" + Date.now(), sector: item.sector, category: db.defCategories[0] || "حيثيات الثبوت والرد على الدفوع", title: item.title, response: item.content, ref: item.ref, contributor: item.contributor });
     else if (item.sectionTarget === 'jurisdictions') db.jurisdictions.unshift({ id: "enc_" + Date.now(), category: db.compassCategories[0] || "الكتب والقرارات 2026", title: item.title, content: item.content, ref: item.ref });
     else if (item.sectionTarget === 'library') db.library.unshift({ id: "lib_" + Date.now(), sector: item.sector, category: db.libCategories[0] || "مؤلفات السادة المستشارين", title: item.title, author: item.contributor, description: item.content, driveUrl: item.ref });
-    else if (item.sectionTarget === 'forms') db.forms.unshift({ id: "form_" + Date.now(), sector: item.sector, category: db.formCategories[0] || "نماذج المذكرات وتقرير الاتهام", title: item.title, content: item.content });
+    else if (item.sectionTarget === 'forms') db.forms.unshift({ id: "form_" + Date.now(), sector: item.sector, category: db.formCategories[0] || "ديباجات محاضر التحقيق والاطلاع", title: item.title, content: item.content });
     db.pendingContributions.splice(idx, 1);
     await persistState("اعتماد مساهمة", item.sectionTarget, item.title);
 };
@@ -866,6 +957,7 @@ window.rejectContribution = async idx => { db.pendingContributions.splice(idx, 1
 
 window.openAdminModalDirect = function() {
     if (!currentUser || !(currentUser.role === 'super_admin' || currentUser.role === 'moderator')) return;
+    injectAdminTaxonomyManager();
     const b = db.branding;
     if (document.getElementById('brand_title_input')) document.getElementById('brand_title_input').value = b.brandTitle || "";
     if (document.getElementById('brand_sub_input')) document.getElementById('brand_sub_input').value = b.brandSub || "";
@@ -874,8 +966,7 @@ window.openAdminModalDirect = function() {
     if (document.getElementById('footer_instructions_input')) document.getElementById('footer_instructions_input').value = b.footerInstructions || "";
     if (document.getElementById('about_mallawi_input')) document.getElementById('about_mallawi_input').value = b.aboutMallawiText || "";
     if (document.getElementById('footer_text_input')) document.getElementById('footer_text_input').value = b.footerText || "";
-    renderDynamicCategoryControls();
-    renderMembersTable(); renderVipTokensTable(); renderPendingContributions();
+    renderMembersTable(); renderVipTokensTable(); renderPendingContributions(); renderTaxonomyManagerList();
     toggleModal('adminModal');
 };
 
@@ -893,8 +984,10 @@ window.saveBrandingSettings = async function() {
 };
 
 window.switchAdminView = function(viewId) {
+    injectAdminTaxonomyManager();
     document.querySelectorAll('.adm-view').forEach(v => v.classList.add('hidden'));
     document.getElementById(viewId)?.classList.remove('hidden');
+    if (viewId === 'adm-QuickAdd') renderTaxonomyManagerList();
 };
 
 window.downloadDatabaseBackup = function() {
@@ -913,7 +1006,7 @@ window.restoreDatabaseBackup = function(event) {
                 if (parsed && parsed.members) {
                     db = { ...initialPlatformState, ...parsed };
                     await persistState("استرداد نسخة", "النظام", "كامل");
-                    alert("✅ تم استرداد النسخة الاحتياطية بالكامل في القاعدة الجديدة!");
+                    alert("✅ تم استرداد النسخة الاحتياطية بالكامل!");
                     location.reload();
                 }
             } catch (err) { alert("ملف النسخة غير صالح."); }
@@ -994,8 +1087,8 @@ function updateHybridAndAuthUI() {
 }
 
 function refreshAllUI() {
+    syncDynamicTaxonomiesUI();
     updateHybridAndAuthUI();
-    renderDynamicCategoryControls();
     renderLibrarySection();
     renderCurrentStage();
     renderCompassEncyclopedia();
@@ -1007,6 +1100,7 @@ function refreshAllUI() {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+    injectAdminTaxonomyManager();
     let bndHtml = "";
     Object.keys(BND_DETAILS).forEach(k => {
         bndHtml += `<label class="flex items-start gap-1.5 cursor-pointer"><input type="checkbox" class="chk-bnd" value="${k}" onchange="composeSmartQayd()"><span class="mt-0.5">${BND_DETAILS[k].desc}</span></label>`;
