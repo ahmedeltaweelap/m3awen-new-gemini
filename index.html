@@ -24,7 +24,7 @@
         input, textarea, [contenteditable="true"] { user-select: text; -webkit-user-select: text; }
         .hub-card-active { border-color: #C5A059 !important; background-color: #FFFFFF !important; box-shadow: 0 4px 20px -2px rgba(197, 160, 89, 0.35) !important; transform: translateY(-2px); }
         .stage-step-active { background-color: #0B132B !important; color: #C5A059 !important; border-color: #C5A059 !important; font-weight: 800; box-shadow: 0 2px 10px rgba(11, 19, 43, 0.2); }
-        .def-subtab-active, .compass-tab-active, .sector-active { background-color: #0B132B !important; color: #C5A059 !important; font-weight: 700; border-color: #C5A059 !important; }
+        .def-subtab-active, .compass-tab-active, .sector-active, .tactic-tag-active { background-color: #0B132B !important; color: #C5A059 !important; font-weight: 700; border-color: #C5A059 !important; }
         .custom-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #C5A059; border-radius: 4px; }
         .teaser-blur { filter: blur(5px); pointer-events: none; }
@@ -61,7 +61,7 @@
             <!-- شريط البحث (محمي من الملء التلقائي) -->
             <div class="order-3 md:order-2 w-full md:flex-1 md:max-w-md relative flex items-center gap-1.5">
                 <div class="relative flex-1">
-                    <input type="text" id="globalSearch" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')" onkeyup="if(event.key==='Enter') executeGlobalSearch()" placeholder="ابحث في أقسام المنصة واضغط Enter..." value=""
+                    <input type="text" id="globalSearch" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')" onkeyup="if(event.key==='Enter') executeGlobalSearch()" placeholder="ابحث في أقسام المنصة وسلسلة الحيل واضغط Enter..." value=""
                            class="w-full bg-judicial-800 text-white placeholder-slate-400 rounded-lg py-1.5 px-3 border border-slate-600 focus:outline-none focus:border-judicial-gold text-xs">
                     <button type="button" id="clearSearchBtn" onclick="clearGlobalSearch()" class="hidden absolute left-2 top-1.5 text-slate-400 hover:text-white text-xs font-bold">&times;</button>
                 </div>
@@ -70,6 +70,10 @@
 
             <!-- أزرار الإجراءات العلوية -->
             <div class="order-2 md:order-3 flex items-center gap-2">
+                <button type="button" onclick="openTacticsModal()" class="bg-amber-900/90 hover:bg-amber-800 text-judicial-gold px-2.5 py-1.5 rounded-lg border border-judicial-gold/70 text-xs font-extrabold cursor-pointer flex items-center gap-1 shadow" title="مُسعِف الجلسة وسلسلة الدفوع والحيل القانونية">
+                    <i class="fa-solid fa-shield-halved"></i>
+                    <span class="hidden sm:inline">طوارئ التحقيق</span>
+                </button>
                 <button type="button" onclick="openMemberAuthModal()" class="bg-judicial-800 text-white px-3 py-1.5 rounded-lg border border-judicial-gold/50 text-xs font-bold cursor-pointer flex items-center gap-1.5">
                     <i class="fa-solid fa-user-shield text-judicial-gold"></i>
                     <span id="memberTopText">دخول / تسجيل</span>
@@ -117,37 +121,43 @@
         </div>
     </div>
 
-    <!-- شبكة بطاقات الأقسام العلوية الدائمة -->
+    <!-- شبكة بطاقات الأقسام العلوية الدائمة (مع سطر الوصف التوضيحي القابل للتعديل سحابياً) -->
     <div class="max-w-7xl mx-auto px-4 mt-4">
         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5">
-            <div onclick="selectHubSection('tab-library')" id="hubCard-tab-library" class="hub-card hub-card-active bg-white border-2 border-judicial-gold/60 rounded-xl p-3 flex flex-col items-center text-center cursor-pointer shadow-sm">
-                <div class="w-10 h-10 rounded-xl bg-slate-50 border border-judicial-gold/50 flex items-center justify-center text-judicial-gold text-lg mb-2"><i class="fa-solid fa-book-bookmark"></i></div>
-                <h3 class="font-bold text-xs text-judicial-900">1. المكتبة والمؤلفات</h3>
+            <div onclick="selectHubSection('tab-library')" id="hubCard-tab-library" class="hub-card hub-card-active bg-white border-2 border-judicial-gold/60 rounded-xl p-3 flex flex-col items-center text-center cursor-pointer shadow-sm transition">
+                <div class="w-10 h-10 rounded-xl bg-slate-50 border border-judicial-gold/50 flex items-center justify-center text-judicial-gold text-lg mb-1.5"><i class="fa-solid fa-book-bookmark"></i></div>
+                <h3 id="hubTitle_library" class="font-bold text-xs text-judicial-900">1. المكتبة والمؤلفات</h3>
+                <p id="hubSub_library" class="text-[10px] text-slate-500 mt-0.5 leading-tight">مؤلفات السادة المستشارين والكتب والصوتيات</p>
             </div>
-            <div onclick="selectHubSection('tab-compass')" id="hubCard-tab-compass" class="hub-card bg-white border-2 border-slate-200 rounded-xl p-3 flex flex-col items-center text-center cursor-pointer shadow-sm relative">
+            <div onclick="selectHubSection('tab-compass')" id="hubCard-tab-compass" class="hub-card bg-white border-2 border-slate-200 rounded-xl p-3 flex flex-col items-center text-center cursor-pointer shadow-sm relative transition">
                 <span class="absolute top-2 left-2 text-judicial-gold text-[10px]"><i class="fa-solid fa-lock"></i></span>
-                <div class="w-10 h-10 rounded-xl bg-slate-50 border border-cyan-500/40 flex items-center justify-center text-cyan-600 text-lg mb-2"><i class="fa-solid fa-compass"></i></div>
-                <h3 class="font-bold text-xs text-judicial-900">2. البوصلة ومسار القضية</h3>
+                <div class="w-10 h-10 rounded-xl bg-slate-50 border border-cyan-500/40 flex items-center justify-center text-cyan-600 text-lg mb-1.5"><i class="fa-solid fa-compass"></i></div>
+                <h3 id="hubTitle_compass" class="font-bold text-xs text-judicial-900">2. البوصلة ومسار القضية</h3>
+                <p id="hubSub_compass" class="text-[10px] text-slate-500 mt-0.5 leading-tight">دورة حياة القضية ومسقطات الدعوى</p>
             </div>
-            <div onclick="selectHubSection('tab-defenses')" id="hubCard-tab-defenses" class="hub-card bg-white border-2 border-slate-200 rounded-xl p-3 flex flex-col items-center text-center cursor-pointer shadow-sm relative">
+            <div onclick="selectHubSection('tab-defenses')" id="hubCard-tab-defenses" class="hub-card bg-white border-2 border-slate-200 rounded-xl p-3 flex flex-col items-center text-center cursor-pointer shadow-sm relative transition">
                 <span class="absolute top-2 left-2 text-judicial-gold text-[10px]"><i class="fa-solid fa-lock"></i></span>
-                <div class="w-10 h-10 rounded-xl bg-slate-50 border border-blue-500/40 flex items-center justify-center text-blue-700 text-lg mb-2"><i class="fa-solid fa-gavel"></i></div>
-                <h3 class="font-bold text-xs text-judicial-900">3. الحيثيات والدفوع</h3>
+                <div class="w-10 h-10 rounded-xl bg-slate-50 border border-blue-500/40 flex items-center justify-center text-blue-700 text-lg mb-1.5"><i class="fa-solid fa-gavel"></i></div>
+                <h3 id="hubTitle_defenses" class="font-bold text-xs text-judicial-900">3. الحيثيات والدفوع</h3>
+                <p id="hubSub_defenses" class="text-[10px] text-slate-500 mt-0.5 leading-tight">أحكام الإدارية العليا والردود</p>
             </div>
-            <div onclick="selectHubSection('tab-checklists')" id="hubCard-tab-checklists" class="hub-card bg-white border-2 border-slate-200 rounded-xl p-3 flex flex-col items-center text-center cursor-pointer shadow-sm relative">
+            <div onclick="selectHubSection('tab-checklists')" id="hubCard-tab-checklists" class="hub-card bg-white border-2 border-slate-200 rounded-xl p-3 flex flex-col items-center text-center cursor-pointer shadow-sm relative transition">
                 <span class="absolute top-2 left-2 text-judicial-gold text-[10px]"><i class="fa-solid fa-lock"></i></span>
-                <div class="w-10 h-10 rounded-xl bg-slate-50 border border-emerald-500/40 flex items-center justify-center text-emerald-600 text-lg mb-2"><i class="fa-solid fa-clipboard-question"></i></div>
-                <h3 class="font-bold text-xs text-judicial-900">4. قوائم التحقيق</h3>
+                <div class="w-10 h-10 rounded-xl bg-slate-50 border border-emerald-500/40 flex items-center justify-center text-emerald-600 text-lg mb-1.5"><i class="fa-solid fa-clipboard-question"></i></div>
+                <h3 id="hubTitle_checklists" class="font-bold text-xs text-judicial-900">4. قوائم الفحص والتحقيق</h3>
+                <p id="hubSub_checklists" class="text-[10px] text-slate-500 mt-0.5 leading-tight">المستندات والأسئلة ومُسعِف الجلسة</p>
             </div>
-            <div onclick="selectHubSection('tab-forms')" id="hubCard-tab-forms" class="hub-card bg-white border-2 border-slate-200 rounded-xl p-3 flex flex-col items-center text-center cursor-pointer shadow-sm relative">
+            <div onclick="selectHubSection('tab-forms')" id="hubCard-tab-forms" class="hub-card bg-white border-2 border-slate-200 rounded-xl p-3 flex flex-col items-center text-center cursor-pointer shadow-sm relative transition">
                 <span class="absolute top-2 left-2 text-judicial-gold text-[10px]"><i class="fa-solid fa-lock"></i></span>
-                <div class="w-10 h-10 rounded-xl bg-slate-50 border border-rose-500/40 flex items-center justify-center text-rose-600 text-lg mb-2"><i class="fa-solid fa-file-signature"></i></div>
-                <h3 class="font-bold text-xs text-judicial-900">5. النماذج والمآخذ</h3>
+                <div class="w-10 h-10 rounded-xl bg-slate-50 border border-rose-500/40 flex items-center justify-center text-rose-600 text-lg mb-1.5"><i class="fa-solid fa-file-signature"></i></div>
+                <h3 id="hubTitle_forms" class="font-bold text-xs text-judicial-900">5. النماذج والمآخذ</h3>
+                <p id="hubSub_forms" class="text-[10px] text-slate-500 mt-0.5 leading-tight">القرارات التنظيمية وصيغ التصرف</p>
             </div>
-            <div onclick="selectHubSection('tab-qayds')" id="hubCard-tab-qayds" class="hub-card bg-white border-2 border-slate-200 rounded-xl p-3 flex flex-col items-center text-center cursor-pointer shadow-sm relative">
+            <div onclick="selectHubSection('tab-qayds')" id="hubCard-tab-qayds" class="hub-card bg-white border-2 border-slate-200 rounded-xl p-3 flex flex-col items-center text-center cursor-pointer shadow-sm relative transition">
                 <span class="absolute top-2 left-2 text-judicial-gold text-[10px]"><i class="fa-solid fa-lock"></i></span>
-                <div class="w-10 h-10 rounded-xl bg-slate-50 border border-amber-500/40 flex items-center justify-center text-amber-600 text-lg mb-2"><i class="fa-solid fa-feather-pointed"></i></div>
-                <h3 class="font-bold text-xs text-judicial-900">6. مولّد القيود</h3>
+                <div class="w-10 h-10 rounded-xl bg-slate-50 border border-amber-500/40 flex items-center justify-center text-amber-600 text-lg mb-1.5"><i class="fa-solid fa-feather-pointed"></i></div>
+                <h3 id="hubTitle_qayds" class="font-bold text-xs text-judicial-900">6. مولّد القيود والأوصاف</h3>
+                <p id="hubSub_qayds" class="text-[10px] text-slate-500 mt-0.5 leading-tight">صياغة الوقائع والتكييف القانوني</p>
             </div>
         </div>
     </div>
@@ -157,16 +167,19 @@
 
         <!-- 1. المكتبة والمؤلفات -->
         <section id="tab-library" class="tab-content space-y-3">
-            <div class="bg-judicial-900 p-3.5 rounded-xl text-white flex justify-between items-center border border-judicial-gold">
-                <h2 class="font-bold text-judicial-gold text-sm"><i class="fa-solid fa-book-atlas"></i> المكتبة والمؤلفات والكتب الدورية</h2>
-                <div class="flex gap-2">
-                    <select id="libCategoryFilter" onchange="renderLibrarySection()" class="bg-judicial-800 border-none rounded px-2 py-1 text-xs text-judicial-gold font-bold">
+            <div class="bg-judicial-900 p-3.5 rounded-xl text-white flex flex-wrap justify-between items-center gap-2 border border-judicial-gold">
+                <div>
+                    <h2 class="font-bold text-judicial-gold text-sm"><i class="fa-solid fa-book-atlas ml-1"></i> المكتبة الرقمية ومؤلفات السادة المستشارين والكتب الدورية</h2>
+                    <p class="text-[11px] text-slate-300">تصفح الكتب والأبحاث واللوائح الموثقة عبر Google Drive والمحاضرات الصوتية المفهرسة.</p>
+                </div>
+                <div class="flex flex-wrap gap-2 items-center">
+                    <button type="button" onclick="openTacticsModal()" class="bg-amber-500 hover:bg-yellow-400 text-judicial-950 font-extrabold px-3 py-1 rounded text-xs cursor-pointer shadow flex items-center gap-1">
+                        <i class="fa-solid fa-shield-halved"></i> سلسلة الدفوع والحيل القانونية
+                    </button>
+                    <select id="libCategoryFilter" onchange="renderLibrarySection()" class="bg-judicial-800 border border-judicial-gold/50 rounded px-2.5 py-1 text-xs text-judicial-gold font-bold cursor-pointer">
                         <option value="الكل">كل التصنيفات</option>
-                        <option value="مؤلفات السادة المستشارين">مؤلفات السادة المستشارين</option>
-                        <option value="كتب دورية ومنشورات">كتب دورية ومنشورات</option>
-                        <option value="تشريعات ولوائح PDF">تشريعات ولوائح PDF</option>
                     </select>
-                    <button type="button" onclick="openItemEditor('library')" class="admin-add-btn hidden bg-emerald-600 px-3 py-1 rounded text-xs font-bold cursor-pointer">+ إضافة كتاب</button>
+                    <button type="button" onclick="openItemEditor('library')" class="admin-add-btn hidden bg-emerald-600 hover:bg-emerald-500 px-3 py-1 rounded text-xs font-bold cursor-pointer">+ إضافة كتاب / محاضرة</button>
                 </div>
             </div>
             <div id="libraryContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3"></div>
@@ -198,14 +211,7 @@
             <div class="bg-white p-4 rounded-xl shadow-sm border space-y-3">
                 <div class="flex flex-wrap justify-between items-center border-b pb-2 gap-2">
                     <h3 class="font-bold text-xs"><i class="fa-solid fa-layer-group text-judicial-gold"></i> المصنّف الإجرائي المشروح ومبادئ الإدارية العليا 2026</h3>
-                    <div class="flex gap-1 overflow-x-auto" id="encyclopediaTabs">
-                        <button type="button" onclick="filterCompassEncyclopedia('الكل')" data-compcat="الكل" class="compass-subtab compass-tab-active px-2 py-1 rounded text-xs border cursor-pointer">الكل</button>
-                        <button type="button" onclick="filterCompassEncyclopedia('الاختصاص والطلب')" data-compcat="الاختصاص والطلب" class="compass-subtab bg-slate-50 px-2 py-1 rounded text-xs border cursor-pointer">الاختصاص والطلب</button>
-                        <button type="button" onclick="filterCompassEncyclopedia('ضوابط التحقيق')" data-compcat="ضوابط التحقيق" class="compass-subtab bg-slate-50 px-2 py-1 rounded text-xs border cursor-pointer">التحقيق والإعلان</button>
-                        <button type="button" onclick="filterCompassEncyclopedia('أوجه التصرف')" data-compcat="أوجه التصرف" class="compass-subtab bg-slate-50 px-2 py-1 rounded text-xs border cursor-pointer">عوارض وتصرفات</button>
-                        <button type="button" onclick="filterCompassEncyclopedia('الكتب والقرارات 2026')" data-compcat="الكتب والقرارات 2026" class="compass-subtab bg-slate-50 px-2 py-1 rounded text-xs border cursor-pointer">قرارات 2026</button>
-                        <button type="button" onclick="filterCompassEncyclopedia('مبادئ الإدارية العليا')" data-compcat="مبادئ الإدارية العليا" class="compass-subtab bg-slate-50 px-2 py-1 rounded text-xs border cursor-pointer">المبادئ</button>
-                    </div>
+                    <div class="flex gap-1 overflow-x-auto" id="encyclopediaTabs"></div>
                 </div>
                 <div id="compassEncyclopediaContainer" class="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[460px] overflow-y-auto custom-scroll"></div>
             </div>
@@ -218,24 +224,32 @@
                     <h2 class="font-bold text-sm"><i class="fa-solid fa-scale-unbalanced text-judicial-gold"></i> موسوعة الحيثيات والرد على الدفوع وأوجه الحفظ</h2>
                     <button type="button" onclick="openItemEditor('defense')" class="admin-add-btn hidden bg-emerald-600 text-white px-3 py-1 rounded text-xs cursor-pointer">+ إضافة حيثية</button>
                 </div>
-                <div class="flex gap-1 overflow-x-auto border-t pt-2">
-                    <button type="button" onclick="selectDefenseCategory('الكل')" data-defcat="الكل" class="def-subtab def-subtab-active px-3 py-1 rounded text-xs font-bold whitespace-nowrap cursor-pointer">الكل</button>
-                    <button type="button" onclick="selectDefenseCategory('حيثيات الحفظ القطعي')" data-defcat="حيثيات الحفظ القطعي" class="def-subtab bg-slate-100 text-slate-700 px-3 py-1 rounded text-xs font-bold whitespace-nowrap cursor-pointer">الحفظ القطعي</button>
-                    <button type="button" onclick="selectDefenseCategory('حيثيات الحفظ المؤقت')" data-defcat="حيثيات الحفظ المؤقت" class="def-subtab bg-slate-100 text-slate-700 px-3 py-1 rounded text-xs font-bold whitespace-nowrap cursor-pointer">الحفظ المؤقت</button>
-                    <button type="button" onclick="selectDefenseCategory('حيثيات الإجراءات والاختصاص')" data-defcat="حيثيات الإجراءات والاختصاص" class="def-subtab bg-slate-100 text-slate-700 px-3 py-1 rounded text-xs font-bold whitespace-nowrap cursor-pointer">الإجراءات والاختصاص</button>
-                    <button type="button" onclick="selectDefenseCategory('حيثيات الثبوت والرد على الدفوع')" data-defcat="حيثيات الثبوت والرد على الدفوع" class="def-subtab bg-slate-100 text-slate-700 px-3 py-1 rounded text-xs font-bold whitespace-nowrap cursor-pointer">الثبوت والرد</button>
-                </div>
+                <div id="defensesTabsBar" class="flex gap-1 overflow-x-auto border-t pt-2"></div>
             </div>
             <div id="defensesContainer" class="space-y-3"></div>
         </section>
 
-        <!-- 4. قوائم التحقيق الاسترشادية -->
+        <!-- 4. قوائم التحقيق الاسترشادية + مُسعِف الجلسة -->
         <section id="tab-checklists" class="tab-content hidden space-y-3">
             <div id="checklistsLockedBanner" class="hidden bg-white p-8 rounded-xl shadow border-2 border-judicial-gold text-center">
                 <h3 class="font-bold text-judicial-900">قسم القوائم مخصص للأعضاء المعتمدين</h3>
                 <button type="button" onclick="openMemberAuthModal()" class="mt-2 bg-judicial-900 text-judicial-gold px-4 py-1.5 rounded-lg text-xs font-bold cursor-pointer">دخول</button>
             </div>
             <div id="checklistsUnlockedContent" class="space-y-3">
+                <!-- شريط الوصول السريع لمُسعِف الجلسة وسلسلة الدفوع والحيل -->
+                <div class="bg-gradient-to-l from-judicial-900 to-judicial-800 text-white p-3 rounded-xl border border-judicial-gold flex flex-wrap justify-between items-center gap-2 shadow-sm">
+                    <div class="flex items-center gap-2">
+                        <span class="w-8 h-8 rounded-lg bg-judicial-gold/20 border border-judicial-gold flex items-center justify-center text-judicial-gold"><i class="fa-solid fa-shield-halved"></i></span>
+                        <div>
+                            <h4 class="font-bold text-xs text-judicial-gold">مُسعِف جلسة التحقيق والتكتيكات العملية (سلسلة المستشار شادي حامد)</h4>
+                            <p class="text-[10px] text-slate-300">واجه حيل الدفاع فوراً: صمت المتهم، المعاش، عدم الاختصاص، اللجان، التسجيلات، وحاسبة التتبع.</p>
+                        </div>
+                    </div>
+                    <button type="button" onclick="openTacticsModal()" class="bg-judicial-gold hover:bg-yellow-400 text-judicial-950 font-extrabold px-3.5 py-1.5 rounded-lg text-xs cursor-pointer shadow">
+                        ⚡ فتح مُسعِف الجلسة والدفوع
+                    </button>
+                </div>
+
                 <div class="bg-white p-2.5 rounded-xl border flex justify-between gap-2 overflow-x-auto">
                     <div id="sectorsBar" class="flex gap-1.5"></div>
                     <button type="button" onclick="openSectorManagerModal()" class="admin-action-btn hidden bg-slate-800 text-judicial-gold text-xs px-2 py-1 rounded cursor-pointer whitespace-nowrap">إدارة القطاعات</button>
@@ -261,11 +275,8 @@
                 <div class="bg-white p-3.5 rounded-xl border flex justify-between items-center">
                     <h2 class="font-bold text-sm">النماذج والمآخذ الرسمية</h2>
                     <div class="flex gap-2">
-                        <select id="formCategoryFilter" onchange="renderFormsSection()" class="bg-slate-50 border rounded px-2 py-1 text-xs">
+                        <select id="formCategoryFilter" onchange="renderFormsSection()" class="bg-slate-50 border rounded px-2 py-1 text-xs font-bold">
                             <option value="الكل">كل النماذج</option>
-                            <option value="ديباجات محاضر التحقيق والاطلاع">ديباجات التحقيق والاطلاع</option>
-                            <option value="نماذج المذكرات وتقرير الاتهام">المذكرات والاتهام</option>
-                            <option value="ضوابط التحقيق وتجنب المآخذ">ضوابط التحقيق</option>
                         </select>
                         <button type="button" onclick="openItemEditor('form')" class="admin-add-btn hidden bg-emerald-600 text-white px-3 py-1 rounded text-xs cursor-pointer">+ نموذج</button>
                     </div>
@@ -312,10 +323,16 @@
                             <option value="hifz_fael">7. حفظ لعدم معرفة الفاعل (م 208 بند 1)</option>
                         </select>
                     </div>
-                    <div id="courtOptionsBox" class="hidden p-2 bg-blue-50 border border-blue-300 rounded text-[10px] grid grid-cols-2 gap-1">
-                        <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="nihala_art" value="art14" checked onchange="composeSmartQayd()">م 14 ق 117</label>
-                        <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="nihala_art" value="art12_2" onchange="composeSmartQayd()">م 12/2</label>
-                        <label class="flex items-center gap-1 text-red-700 font-bold cursor-pointer"><input type="checkbox" id="chk_retired" onchange="composeSmartQayd()">المتهم بالمعاش (م 20 و21)</label>
+                    <div id="courtOptionsBox" class="hidden p-2 bg-blue-50 border border-blue-300 rounded text-[10px] space-y-1.5">
+                        <div class="grid grid-cols-2 gap-1">
+                            <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="nihala_art" value="art14" checked onchange="composeSmartQayd()">م 14 ق 117</label>
+                            <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="nihala_art" value="art12_2" onchange="composeSmartQayd()">م 12/2</label>
+                            <label class="flex items-center gap-1 text-red-700 font-bold cursor-pointer"><input type="checkbox" id="chk_retired" onchange="composeSmartQayd()">المتهم بالمعاش (م 20 و21)</label>
+                        </div>
+                        <div id="retiredCrossLinkAlert" class="hidden bg-amber-100 border border-amber-400 p-1.5 rounded flex justify-between items-center">
+                            <span class="text-amber-950 font-bold">💡 راجع ضوابط التتبع بعد المعاش (حلقة 13)</span>
+                            <button type="button" onclick="openTacticsModal(13)" class="bg-judicial-900 text-judicial-gold px-2 py-0.5 rounded font-bold cursor-pointer">عرض الضوابط</button>
+                        </div>
                     </div>
                     <div class="p-2 border rounded bg-slate-50 text-[10px] max-h-48 overflow-y-auto custom-scroll">
                         <div class="flex justify-between border-b pb-1 mb-1">
@@ -366,6 +383,74 @@
 
     <!-- النوافذ المنبثقة (Modals) -->
 
+    <!-- نافذة مُسعِف الجلسة وسلسلة الدفوع والحيل القانونية (المستشار شادي حامد) -->
+    <div id="tacticsModal" class="fixed inset-0 bg-black/85 z-50 hidden flex items-center justify-center p-3">
+        <div class="bg-white rounded-2xl max-w-6xl w-full h-[92vh] flex flex-col shadow-2xl border-2 border-judicial-gold overflow-hidden">
+            <div class="bg-judicial-900 text-white p-3 flex justify-between items-center border-b border-judicial-gold">
+                <div class="flex items-center gap-2">
+                    <span class="w-8 h-8 rounded-lg bg-judicial-gold text-judicial-950 flex items-center justify-center font-bold"><i class="fa-solid fa-shield-halved"></i></span>
+                    <div>
+                        <h3 class="font-bold text-sm text-judicial-gold">مُسعِف جلسة التحقيق — سلسلة الدفوع والحيل القانونية</h3>
+                        <p class="text-[10px] text-slate-300">إعداد: معالي المستشار شادي حامد (عضو المكتب الفني لرئيس الهيئة) — النص الحرفي الكامل + التطبيق العملي الفوري</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="openItemEditor('tactic')" class="admin-add-btn hidden bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 rounded text-xs font-bold cursor-pointer">+ إضافة حلقة جديدة</button>
+                    <button type="button" onclick="toggleModal('tacticsModal')" class="text-white text-2xl cursor-pointer">&times;</button>
+                </div>
+            </div>
+
+            <!-- شريط الملاحة بين أداة التطبيق التفاعلي والنص الكامل للسلسلة -->
+            <div class="bg-slate-100 p-2 border-b flex flex-wrap justify-between items-center gap-2 text-xs">
+                <div class="flex gap-1.5 overflow-x-auto" id="tacticsFilterTags">
+                    <button type="button" onclick="filterTacticsSeries('الكل')" data-ttag="الكل" class="tactic-subtab tactic-tag-active px-2.5 py-1 rounded border bg-white cursor-pointer whitespace-nowrap">كل الحلقات</button>
+                    <button type="button" onclick="filterTacticsSeries('الاختصاص واللجان')" data-ttag="الاختصاص واللجان" class="tactic-subtab px-2.5 py-1 rounded border bg-white cursor-pointer whitespace-nowrap">الاختصاص واللجان</button>
+                    <button type="button" onclick="filterTacticsSeries('إدارة الجلسة والمواجهة')" data-ttag="إدارة الجلسة والمواجهة" class="tactic-subtab px-2.5 py-1 rounded border bg-white cursor-pointer whitespace-nowrap">إدارة الجلسة والمواجهة</button>
+                    <button type="button" onclick="filterTacticsSeries('التسجيلات والأدلة')" data-ttag="التسجيلات والأدلة" class="tactic-subtab px-2.5 py-1 rounded border bg-white cursor-pointer whitespace-nowrap">التسجيلات والأدلة</button>
+                    <button type="button" onclick="filterTacticsSeries('المعاش والانقطاع')" data-ttag="المعاش والانقطاع" class="tactic-subtab px-2.5 py-1 rounded border bg-white cursor-pointer whitespace-nowrap">المعاش والانقطاع</button>
+                </div>
+                <button type="button" onclick="toggleRetiredCalculator()" class="bg-judicial-900 text-judicial-gold font-bold px-3 py-1 rounded-lg text-xs cursor-pointer flex items-center gap-1 shadow">
+                    <i class="fa-solid fa-calculator"></i> حاسبة التتبع بعد المعاش (حلقة 13)
+                </button>
+            </div>
+
+            <!-- حاسبة التتبع بعد المعاش التفاعلية (مخفية افتراضياً وتفتح بضغطة زر) -->
+            <div id="retiredCalculatorPanel" class="hidden bg-amber-50 border-b-2 border-judicial-gold p-3.5 text-xs space-y-2.5">
+                <div class="flex justify-between items-center border-b border-judicial-gold/30 pb-1.5">
+                    <h4 class="font-extrabold text-judicial-900"><i class="fa-solid fa-scale-balanced text-judicial-gold ml-1"></i> حاسبة التتبع التأديبي بعد انتهاء الخدمة (تطبيق عملي للحلقة 13)</h4>
+                    <button type="button" onclick="toggleRetiredCalculator()" class="text-red-600 font-bold cursor-pointer">إغلاق الحاسبة &times;</button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                    <div>
+                        <label class="block font-bold mb-1">1. متى بدأ التحقيق؟</label>
+                        <select id="calc_ret_timing" onchange="calculateRetiredTracking()" class="w-full border rounded p-1.5 bg-white font-bold">
+                            <option value="before">بدأ التحقيق قبل بلوغ سن المعاش / انتهاء الخدمة</option>
+                            <option value="after">بدأ التحقيق بعد انتهاء الخدمة (لاحقاً على المعاش)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-bold mb-1">2. طبيعة المخالفة المسندة:</label>
+                        <select id="calc_ret_type" onchange="calculateRetiredTracking()" class="w-full border rounded p-1.5 bg-white font-bold">
+                            <option value="financial_damage">مخالفة مالية بضرر مالي محقق لا يمكن تداركه</option>
+                            <option value="admin_or_no_damage">مخالفة إدارية / أو مالية بدون ضرر محقق</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-bold mb-1">3. المدة من تاريخ انتهاء الخدمة حتى إيداع الدعوى:</label>
+                        <select id="calc_ret_years" onchange="calculateRetiredTracking()" class="w-full border rounded p-1.5 bg-white font-bold">
+                            <option value="within5">أقل من 5 سنوات (ولم تسقط بالتقادم الجنائي)</option>
+                            <option value="over5">انقضت 5 سنوات فأكثر من انتهاء الخدمة</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="calc_ret_result" class="p-3 bg-white rounded-xl border border-judicial-gold font-bold text-judicial-900 leading-relaxed"></div>
+            </div>
+
+            <!-- قائمة الحلقات والتطبيق العملي -->
+            <div id="tacticsSeriesContainer" class="p-4 overflow-y-auto flex-1 space-y-4 custom-scroll bg-slate-50"></div>
+        </div>
+    </div>
+
     <!-- 1. نافذة الدخول والتسجيل -->
     <div id="memberAuthModal" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-xl max-w-sm w-full shadow-2xl border-2 border-judicial-gold overflow-hidden">
@@ -404,7 +489,7 @@
         </div>
     </div>
 
-    <!-- 2. نافذة لوحة الإدارة الشاملة (متضمنة تبويب الرقع السحابية) -->
+    <!-- 2. نافذة لوحة الإدارة الشاملة -->
     <div id="adminModal" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center p-3">
         <div class="bg-white rounded-2xl max-w-6xl w-full h-[90vh] flex flex-col shadow-2xl border-2 border-judicial-gold overflow-hidden">
             <div class="bg-judicial-900 text-white p-3 flex justify-between items-center border-b border-judicial-gold">
@@ -417,8 +502,8 @@
             <div class="bg-slate-100 p-2 flex flex-wrap gap-1 text-xs font-bold overflow-x-auto" id="adminTabsBar">
                 <button type="button" onclick="switchAdminView('adm-members')" id="admBtn-members" class="adm-nav-btn bg-white px-3 py-1.5 rounded border cursor-pointer">1. الأعضاء والرادار (<span id="pendingMembersCount" class="text-red-500">0</span>)</button>
                 <button type="button" onclick="switchAdminView('adm-vip')" id="admBtn-vip" class="adm-nav-btn bg-white px-3 py-1.5 rounded border cursor-pointer">2. أكواد VIP</button>
-                <button type="button" onclick="switchAdminView('adm-branding')" id="admBtn-branding" class="adm-nav-btn bg-white px-3 py-1.5 rounded border cursor-pointer">3. نصوص الموقع والفوتر</button>
-                <button type="button" onclick="switchAdminView('adm-QuickAdd')" id="admBtn-QuickAdd" class="adm-nav-btn bg-white px-3 py-1.5 rounded border cursor-pointer">4. الإضافة المباشرة</button>
+                <button type="button" onclick="switchAdminView('adm-branding')" id="admBtn-branding" class="adm-nav-btn bg-white px-3 py-1.5 rounded border cursor-pointer">3. نصوص الموقع والبطاقات</button>
+                <button type="button" onclick="switchAdminView('adm-QuickAdd')" id="admBtn-QuickAdd" class="adm-nav-btn bg-white px-3 py-1.5 rounded border cursor-pointer">4. الإضافة وإدارة التصنيفات</button>
                 <button type="button" onclick="switchAdminView('adm-pending')" id="admBtn-pending" class="adm-nav-btn bg-white px-3 py-1.5 rounded border cursor-pointer">5. المساهمات (<span id="pendingCountBadge">0</span>)</button>
                 <button type="button" onclick="switchAdminView('adm-logs')" id="admBtn-logs" class="adm-nav-btn bg-white px-3 py-1.5 rounded border cursor-pointer">6. النسخ الاحتياطي</button>
                 <button type="button" onclick="switchAdminView('adm-patch')" id="admBtn-patch" class="adm-nav-btn bg-emerald-700 text-white px-3 py-1.5 rounded border cursor-pointer shadow">⚡ 7. استيراد رقعة سحابية (Cloud Patch)</button>
@@ -434,23 +519,23 @@
                     </div>
                     <table class="w-full text-right text-xs border"><thead class="bg-slate-800 text-white"><tr><th class="p-2">الكود</th><th class="p-2">مخصص لـ</th><th class="p-2">الهاتف</th><th class="p-2">الاستخدام</th><th class="p-2">حذف</th></tr></thead><tbody id="vipTokensTableBody" class="divide-y"></tbody></table>
                 </div>
-                <div id="adm-branding" class="adm-view hidden text-xs grid grid-cols-2 gap-3">
-                    <div><label class="font-bold">اسم المنصة:</label><input type="text" id="brand_title_input" class="w-full border p-1.5 rounded"></div>
-                    <div><label class="font-bold">الوصف الفرعي:</label><input type="text" id="brand_sub_input" class="w-full border p-1.5 rounded"></div>
-                    <div><label class="font-bold">شارة الاتصال السحابي:</label><input type="text" id="brand_cloud_status_input" class="w-full border p-1.5 rounded bg-emerald-50 font-bold text-emerald-800"></div>
-                    <div><label class="font-bold">كود الدعوة الافتراضي العام:</label><input type="text" id="brand_invite_code_input" class="w-full border p-1.5 rounded font-mono font-bold"></div>
-                    <div class="col-span-2"><label class="font-bold">نص إسناد التعليمات بالفوتر:</label><input type="text" id="footer_instructions_input" class="w-full border p-1.5 rounded bg-amber-50 font-bold"></div>
-                    <div class="col-span-2"><label class="font-bold">نص كلمة وفاء وتقدير لنيابة ملوي:</label><textarea id="about_mallawi_input" rows="3" class="w-full border p-1.5 rounded leading-relaxed"></textarea></div>
-                    <div class="col-span-2"><label class="font-bold">نص الفوتر العام:</label><input type="text" id="footer_text_input" class="w-full border p-1.5 rounded"></div>
-                    <div class="col-span-2"><button type="button" onclick="saveBrandingSettings()" class="bg-judicial-900 text-judicial-gold px-5 py-2 rounded font-bold shadow cursor-pointer">حفظ الإعدادات سحابياً</button></div>
+                <div id="adm-branding" class="adm-view hidden text-xs space-y-3">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div><label class="font-bold">اسم المنصة:</label><input type="text" id="brand_title_input" class="w-full border p-1.5 rounded"></div>
+                        <div><label class="font-bold">الوصف الفرعي:</label><input type="text" id="brand_sub_input" class="w-full border p-1.5 rounded"></div>
+                        <div><label class="font-bold">شارة الاتصال السحابي:</label><input type="text" id="brand_cloud_status_input" class="w-full border p-1.5 rounded bg-emerald-50 font-bold text-emerald-800"></div>
+                        <div><label class="font-bold">كود الدعوة الافتراضي العام:</label><input type="text" id="brand_invite_code_input" class="w-full border p-1.5 rounded font-mono font-bold"></div>
+                        <div class="col-span-2"><label class="font-bold">نص إسناد التعليمات بالفوتر:</label><input type="text" id="footer_instructions_input" class="w-full border p-1.5 rounded bg-amber-50 font-bold"></div>
+                        <div class="col-span-2"><label class="font-bold">نص كلمة وفاء وتقدير لنيابة ملوي:</label><textarea id="about_mallawi_input" rows="3" class="w-full border p-1.5 rounded leading-relaxed"></textarea></div>
+                        <div class="col-span-2"><label class="font-bold">نص الفوتر العام:</label><input type="text" id="footer_text_input" class="w-full border p-1.5 rounded"></div>
+                    </div>
+                    <div class="border-t pt-3">
+                        <h4 class="font-bold text-judicial-900 mb-2">تعديل عناوين وأوصاف البطاقات الرئيسية الست بالواجهة:</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2" id="hubCardsConfigInputs"></div>
+                    </div>
+                    <div><button type="button" onclick="saveBrandingSettings()" class="bg-judicial-900 text-judicial-gold px-5 py-2 rounded font-bold shadow cursor-pointer">حفظ كافة الإعدادات سحابياً</button></div>
                 </div>
-                <div id="adm-QuickAdd" class="adm-view hidden grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
-                    <button type="button" onclick="openItemEditor('library')" class="p-3 border rounded-xl hover:bg-slate-50 font-bold cursor-pointer">+ إضافة كتاب</button>
-                    <button type="button" onclick="openItemEditor('jurisdiction')" class="p-3 border rounded-xl hover:bg-slate-50 font-bold cursor-pointer">+ قاعدة بالبوصلة والموسوعة</button>
-                    <button type="button" onclick="openItemEditor('defense')" class="p-3 border rounded-xl hover:bg-slate-50 font-bold cursor-pointer">+ إضافة حيثية أو دفع</button>
-                    <button type="button" onclick="openItemEditor('checklist')" class="p-3 border rounded-xl hover:bg-slate-50 font-bold cursor-pointer">+ إضافة قائمة تحقيق</button>
-                    <button type="button" onclick="openItemEditor('form')" class="p-3 border rounded-xl hover:bg-slate-50 font-bold cursor-pointer">+ إضافة نموذج إجرائي</button>
-                </div>
+                <div id="adm-QuickAdd" class="adm-view hidden space-y-4 text-xs"></div>
                 <div id="adm-pending" class="adm-view hidden"><div id="pendingListContainer" class="space-y-2"></div></div>
                 <div id="adm-logs" class="adm-view hidden space-y-3 text-xs">
                     <div class="p-3 bg-emerald-50 border border-emerald-300 rounded flex gap-2">
@@ -458,7 +543,6 @@
                         <label class="bg-judicial-900 text-judicial-gold px-4 py-2 rounded font-bold cursor-pointer flex items-center">استرداد نسخة <input type="file" accept=".json" onchange="restoreDatabaseBackup(event)" class="hidden"></label>
                     </div>
                 </div>
-                <!-- تبويب الرقعة السحابية الذكية -->
                 <div id="adm-patch" class="adm-view hidden space-y-3 text-xs">
                     <div class="p-3 bg-emerald-50 border-2 border-emerald-500 rounded-xl space-y-2">
                         <div class="flex justify-between items-center">
@@ -467,9 +551,9 @@
                             </h4>
                             <span class="text-[10px] bg-emerald-200 text-emerald-900 font-bold px-2 py-0.5 rounded-full">تحديث فوري دون لمس الكود</span>
                         </div>
-                        <p class="text-slate-600 text-[11px] leading-relaxed">الصق هنا كود الرقعة التحديثية بصيغة JSON المجهزة، واضغط زر التطبيق ليتم تحديث قاعدة بيانات Firebase فوراً دون الحاجة لإعادة رفع أو تعديل أي ملف كود.</p>
+                        <p class="text-slate-600 text-[11px] leading-relaxed">الصق هنا كود الرقعة التحديثية بصيغة JSON المجهزة (لإضافة كتب، حيثيات، حلقات جديدة، أو تصنيفات جديدة)، واضغط زر التطبيق ليتم تحديث قاعدة بيانات Firebase فوراً.</p>
                         <div>
-                            <textarea id="patchJsonInput" rows="7" placeholder='الصق كود الـ JSON هنا... {"targetShard": "jurisdictions", "patchTitle": "...", "items": [...]}' class="w-full border rounded-lg p-2 font-mono text-[11px] bg-white"></textarea>
+                            <textarea id="patchJsonInput" rows="7" placeholder='الصق كود الـ JSON هنا...' class="w-full border rounded-lg p-2 font-mono text-[11px] bg-white"></textarea>
                         </div>
                         <div class="flex justify-end gap-2">
                             <button type="button" onclick="applyCloudPatch()" class="bg-emerald-700 hover:bg-emerald-600 text-white font-extrabold px-5 py-2 rounded-lg text-xs cursor-pointer shadow">
@@ -509,7 +593,7 @@
     <div id="itemEditorModal" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-xl max-w-2xl w-full shadow-2xl overflow-hidden">
             <div class="bg-judicial-900 text-white p-3 flex justify-between"><h3 id="editorModalTitle" class="font-bold text-sm"></h3><button type="button" onclick="toggleModal('itemEditorModal')" class="text-white text-xl cursor-pointer">&times;</button></div>
-            <div id="editorModalBody" class="p-4 text-xs space-y-2 max-h-[70vh] overflow-y-auto custom-scroll"></div>
+            <div id="editorModalBody" class="p-4 text-xs space-y-2 max-h-[75vh] overflow-y-auto custom-scroll"></div>
             <div class="p-3 border-t bg-slate-50 flex justify-end gap-2">
                 <button type="button" onclick="toggleModal('itemEditorModal')" class="px-4 py-1 text-xs cursor-pointer">إلغاء</button>
                 <button type="button" onclick="saveEditorItem()" class="bg-emerald-600 text-white px-5 py-1 rounded text-xs font-bold shadow cursor-pointer">حفظ سحابياً</button>
@@ -541,11 +625,12 @@
         </div>
     </div>
 
-    <!-- 7. نافذة عارضة PDF -->
+    <!-- 7. نافذة عارضة PDF والصوتيات المفهرسة -->
     <div id="pdfViewerModal" class="fixed inset-0 bg-black/85 z-50 hidden flex items-center justify-center p-3">
         <div class="bg-white rounded-2xl max-w-5xl w-full h-[90vh] flex flex-col overflow-hidden border-2 border-judicial-gold">
             <div class="bg-judicial-900 text-white p-3 flex justify-between items-center"><h3 id="pdfViewerTitle" class="font-bold text-xs text-judicial-gold"></h3><button type="button" onclick="closePdfViewer()" class="text-xl text-white cursor-pointer">&times;</button></div>
             <iframe id="pdfIframe" src="" class="w-full flex-1 border-0 bg-slate-800"></iframe>
+            <div id="audioTranscriptBox" class="hidden p-4 bg-slate-50 border-t max-h-60 overflow-y-auto custom-scroll text-xs font-serif leading-relaxed whitespace-pre-line"></div>
         </div>
     </div>
 
