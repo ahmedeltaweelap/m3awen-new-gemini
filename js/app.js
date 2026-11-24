@@ -7,6 +7,26 @@ import { SHARD_REFS, SUPER_ADMIN_PIN_HASH, hashPin, cleanLegalString, JUDICIAL_R
 // ==========================================
 const DEFAULT_MALLAWI_WORD = `«كلمة وفاء وتقدير»\n\nانبثقت فكرة منصة «المُـعَـاوِن» من واقع العمل اليومي والحرص على جمع الشتات الإجرائي واختصار الوقت بما يكفل تحقيق العدالة الناجزة وسلامة التصرف القضائي.\n\nويطيب لي أن أُسجل كلمة تقدير وعرفان لأساتذتي وزملائي الأفاضل بـ نيابة ملوي، الذين كانت لحواراتهم المهنية البنّاءة، وحرصهم الدائم على سلامة الإجراء والسبك القانوني الرصين، أكبر الأثر في إنضاج هذا العمل وإخراجه ليكون عوناً لكل زميل في محراب العدالة، راجياً أن يكون جهداً خالصاً يخدم رسالة هيئتنا القضائية العريقة.`;
 
+const DEFAULT_INVITE_TEMPLATE = `بسم الله الرحمن الرحيم
+معالي الزميل المستشار الجليل،،
+تحية طيبة مباركة، وبعد؛
+
+يشرفني دعوة معاليكم للانضمام إلى منصة «المُـعَـاوِن» الرقمية؛ وهي منصة استرشادية تنظيمية صُممت لجمع الشتات الإجرائي وتيسير الوصول للتعليمات القضائية (طبعة 2026)، والقيود والأوصاف، والحيثيات، ومُسعِف جلسات التحقيق في مكان واحد.
+
+🔗 رابط المنصة:
+{URL}
+
+🎟️ كود الدعوة الخاص بمعاليكم (للاعتماد الفوري):
+{CODE}
+
+📌 طريقة التسجيل وتفعيل العضوية:
+1. الدخول على رابط المنصة والضغط على زر (دخول / تسجيل) بأعلى الصفحة.
+2. اختيار تبويب (طلب اعتماد) وإدخال الاسم والدرجة القضائية وجهة العمل.
+3. اختيار اسم مستخدم (بحروف إنجليزية وأرقام) وكلمة مرور خاصة بمعاليكم.
+4. لصق كود الدعوة ({CODE}) في الخانة المخصصة له ليتم تفعيل العضوية فوراً.
+
+مع خالص التقدير والاحترام،،`;
+
 const DEFAULT_HUB_CARDS = {
     library: { title: "1. المكتبة والمؤلفات", sub: "مؤلفات السادة المستشارين والكتب والصوتيات" },
     compass: { title: "2. البوصلة ومسار القضية", sub: "دورة حياة القضية ومسقطات الدعوى" },
@@ -317,7 +337,7 @@ const initialPlatformState = {
         footerText: "تنظيمٌ يَجمعُ الشتات.. وبحثٌ يختصر الوقت © 2026",
         hubCards: JSON.parse(JSON.stringify(DEFAULT_HUB_CARDS))
     },
-    settings: { inviteCode: "VIP2026" },
+    settings: { inviteCode: "VIP2026", inviteTemplate: DEFAULT_INVITE_TEMPLATE },
     vipTokens: [],
     sectors: ["الكل", "محليات وإدارة هندسية", "تعاقدات ومشتريات ومخازن", "شؤون وظيفية وخدمة مدنية", "صحة وإسعاف", "تضامن وتكافل وكرامة", "تربية وتعليم", "زراعة وأملاك دولة"],
     libCategories: [...DEFAULT_CATEGORIES.libCategories],
@@ -1020,9 +1040,20 @@ function buildDefCard(d, idx, app, ce, cd) {
                 <div class="flex items-center gap-1.5 flex-wrap"><span class="bg-judicial-900 text-judicial-gold text-[10px] font-bold px-2 py-0.5 rounded">${d.category}</span><span class="bg-slate-100 text-slate-600 text-[10px] font-bold px-2 py-0.5 rounded">${d.sector}</span><h3 class="font-bold text-judicial-900 text-xs md:text-sm">${cleanLegalString(d.title)}</h3></div>
                 <div class="flex gap-1">${ce ? `<button type="button" onclick="openItemEditor('defense','${d.id}')" class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded text-xs cursor-pointer"><i class="fa-solid fa-pen"></i></button>` : ''}${cd ? `<button type="button" onclick="deleteItem('defense','${d.id}')" class="bg-red-100 text-red-600 px-2 py-0.5 rounded text-xs cursor-pointer"><i class="fa-solid fa-trash"></i></button>` : ''}</div>
             </div>
-            ${app ? `<p id="def-text-${idx}" class="text-slate-800 font-serif text-base leading-relaxed bg-slate-50 p-3 rounded-lg border mb-2 whitespace-pre-line">${cleanLegalString(d.response)}</p><div class="flex justify-between items-center text-xs text-slate-500"><span>السند: ${cleanLegalString(d.ref)}</span><div class="flex gap-1.5"><button type="button" onclick="copyText('def-text-${idx}')" class="bg-judicial-900 text-white px-2.5 py-1 rounded text-xs font-bold cursor-pointer">نسخ</button><button type="button" onclick="addToBasket('${d.title}', document.getElementById('def-text-${idx}').innerText)" class="bg-judicial-gold text-judicial-950 px-2.5 py-1 rounded text-xs font-extrabold cursor-pointer">+ للمسودة</button></div></div>` : `<div class="bg-slate-50 p-3 rounded-lg border"><p class="text-slate-800 font-serif text-base">${cleanLegalString(d.response).substring(0, 75)}... <span class="teaser-blur">${cleanLegalString(d.response).substring(75)}</span></p><div class="mt-2 pt-2 border-t flex justify-between items-center"><span class="text-[11px] text-amber-800 font-bold">🔒 مقيد للسادة الأعضاء</span><button type="button" onclick="openMemberAuthModal()" class="bg-judicial-900 text-judicial-gold font-bold px-3 py-1 rounded text-xs cursor-pointer">سجل دخولك 🔓</button></div></div>`}
+            ${app ? `<p id="def-text-${idx}" class="text-slate-800 font-serif text-base leading-relaxed bg-slate-50 p-3 rounded-lg border mb-2 whitespace-pre-line">${cleanLegalString(d.response)}</p><div class="flex flex-wrap justify-between items-center gap-2 text-xs text-slate-500"><span>السند: ${cleanLegalString(d.ref)}</span><div class="flex gap-1.5"><button type="button" onclick="shareDefenseWhatsApp('${escapeHTML(d.title)}', 'def-text-${idx}', '${escapeHTML(d.ref)}')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1 rounded text-xs font-bold cursor-pointer flex items-center gap-1"><i class="fa-brands fa-whatsapp"></i> واتساب</button><button type="button" onclick="copyText('def-text-${idx}')" class="bg-judicial-900 text-white px-2.5 py-1 rounded text-xs font-bold cursor-pointer">نسخ</button><button type="button" onclick="addToBasket('${escapeHTML(d.title)}', document.getElementById('def-text-${idx}').innerText)" class="bg-judicial-gold text-judicial-950 px-2.5 py-1 rounded text-xs font-extrabold cursor-pointer">+ للمسودة</button></div></div>` : `<div class="bg-slate-50 p-3 rounded-lg border"><p class="text-slate-800 font-serif text-base">${cleanLegalString(d.response).substring(0, 75)}... <span class="teaser-blur">${cleanLegalString(d.response).substring(75)}</span></p><div class="mt-2 pt-2 border-t flex justify-between items-center"><span class="text-[11px] text-amber-800 font-bold">🔒 مقيد للسادة الأعضاء</span><button type="button" onclick="openMemberAuthModal()" class="bg-judicial-900 text-judicial-gold font-bold px-3 py-1 rounded text-xs cursor-pointer">سجل دخولك 🔓</button></div></div>`}
         </div>`;
 }
+
+window.shareDefenseWhatsApp = function(title, textElId, ref) {
+    const bodyText = document.getElementById(textElId)?.innerText || "";
+    const msg = `⚖️ *${title}*
+
+${bodyText}
+
+📌 *السند:* ${ref || '-'}
+— عبر منصة «المُـعَـاوِن»`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+};
 
 window.renderDefensesSection = function() {
     const list = db.defenses || [], app = isApprovedMember(), ce = hasPerm('edit'), cd = hasPerm('delete'), cont = document.getElementById('defensesContainer');
@@ -1325,9 +1356,58 @@ window.createSmartVipToken = async function() {
     alert(`✅ تم توليد الكود: ${tokenCode}`);
 };
 function renderVipTokensTable() {
+    const tplInp = document.getElementById('vip_invite_template_input');
+    if (tplInp && !tplInp.value) {
+        tplInp.value = db.settings?.inviteTemplate || DEFAULT_INVITE_TEMPLATE;
+    }
     const tb = document.getElementById('vipTokensTableBody'); if (!tb) return;
-    tb.innerHTML = (db.vipTokens || []).map((t, i) => `<tr><td class="p-2 font-mono font-bold text-emerald-700">${t.token}</td><td class="p-2">${t.label}</td><td class="p-2">${t.phoneLock || '-'}</td><td class="p-2">${t.usesCount || 0}/${t.maxUses}</td><td class="p-2"><button onclick="deleteVipToken(${i})" class="text-red-600">حذف</button></td></tr>`).join('');
+    tb.innerHTML = (db.vipTokens || []).map((t, i) => `
+        <tr class="hover:bg-slate-50">
+            <td class="p-2 font-mono font-extrabold text-emerald-700 text-sm" dir="ltr">${escapeHTML(t.token)}</td>
+            <td class="p-2 font-bold text-judicial-900">${escapeHTML(t.label)}</td>
+            <td class="p-2 font-mono text-slate-600">${escapeHTML(t.phoneLock || 'متاح للجميع')}</td>
+            <td class="p-2 font-bold"><span class="bg-slate-100 px-2 py-0.5 rounded">${t.usesCount || 0} / ${t.maxUses === 999 ? '∞' : t.maxUses}</span></td>
+            <td class="p-2 text-center">
+                <div class="flex justify-center gap-1.5 flex-wrap">
+                    <button type="button" onclick="copyVipCodeOnly('${escapeHTML(t.token)}')" class="bg-slate-800 hover:bg-slate-700 text-white px-2.5 py-1 rounded text-[11px] font-bold cursor-pointer" title="نسخ الرمز فقط">
+                        <i class="fa-regular fa-copy ml-1"></i> نسخ الكود
+                    </button>
+                    <button type="button" onclick="copyVipFormalInvite('${escapeHTML(t.token)}')" class="bg-judicial-gold hover:bg-yellow-500 text-judicial-950 px-2.5 py-1 rounded text-[11px] font-extrabold cursor-pointer shadow-sm" title="نسخ رسالة دعوة رسمية كاملة مع طريقة التسجيل">
+                        <i class="fa-solid fa-envelope-open-text ml-1"></i> نسخ رسالة الدعوة
+                    </button>
+                </div>
+            </td>
+            <td class="p-2 text-center"><button type="button" onclick="deleteVipToken(${i})" class="text-red-600 hover:text-red-800 font-bold cursor-pointer"><i class="fa-solid fa-trash"></i></button></td>
+        </tr>`).join('');
 }
+
+window.saveVipInviteTemplate = async function() {
+    if (!hasPerm('manageUsers')) return alert("مخصص لمدير المنصة فقط.");
+    const val = document.getElementById('vip_invite_template_input')?.value.trim();
+    if (!val) return alert("لا يمكن ترك نص الرسالة فارغاً!");
+    if (!db.settings) db.settings = {};
+    db.settings.inviteTemplate = val;
+    await persistState("تعديل قالب رسالة الدعوة", "VIP");
+    alert("✅ تم حفظ قالب رسالة الدعوة سحابياً بنجاح!");
+};
+
+window.resetVipInviteTemplate = function() {
+    const tplInp = document.getElementById('vip_invite_template_input');
+    if (tplInp) tplInp.value = DEFAULT_INVITE_TEMPLATE;
+};
+
+window.copyVipCodeOnly = function(token) {
+    navigator.clipboard.writeText(token);
+    alert(`✅ تم نسخ كود الدعوة: ${token}`);
+};
+
+window.copyVipFormalInvite = function(token) {
+    const siteUrl = window.location.origin;
+    const rawTpl = (document.getElementById('vip_invite_template_input')?.value.trim()) || db.settings?.inviteTemplate || DEFAULT_INVITE_TEMPLATE;
+    const msg = rawTpl.replace(/\{URL\}/g, siteUrl).replace(/\{CODE\}/g, token);
+    navigator.clipboard.writeText(msg);
+    alert("✅ تم نسخ رسالة الدعوة الوقورة شاملةً الرابط والكود وطريقة التسجيل!");
+};
 window.deleteVipToken = async i => { db.vipTokens.splice(i, 1); await persistState("حذف كود VIP", "VIP"); renderVipTokensTable(); };
 
 window.openContributeModal = function() {
