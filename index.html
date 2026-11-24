@@ -464,27 +464,53 @@
                 <input type="password" id="login_pin" onkeyup="if(event.key==='Enter') submitMemberLogin()" placeholder="كلمة المرور" class="w-full border rounded p-2 text-sm">
                 <button type="button" onclick="submitMemberLogin()" class="w-full bg-judicial-900 text-judicial-gold py-2 rounded font-bold shadow cursor-pointer">دخول</button>
             </div>
-            <div id="formMemberRegister" class="p-4 space-y-2 hidden text-xs">
-                <input type="text" id="reg_name" placeholder="الاسم رباعياً" class="w-full border rounded p-1.5">
-                <select id="reg_title" class="w-full border rounded p-1.5 font-bold">
-                    <option value="معاون نيابة إدارية">معاون نيابة إدارية</option>
-                    <option value="مساعد نيابة إدارية">مساعد نيابة إدارية</option>
-                    <option value="وكيل نيابة إدارية">وكيل نيابة إدارية</option>
-                    <option value="وكيل نيابة إدارية من الفئة الممتازة">وكيل نيابة فئة ممتازة</option>
-                    <option value="رئيس نيابة إدارية من الفئة (ب)">رئيس نيابة (ب)</option>
-                    <option value="رئيس نيابة إدارية من الفئة (أ)">رئيس نيابة (أ)</option>
-                    <option value="وكيل عام">وكيل عام</option>
-                    <option value="وكيل عام أول">وكيل عام أول</option>
-                    <option value="نائب رئيس هيئة النيابة الإدارية">نائب رئيس هيئة</option>
-                </select>
-                <input type="text" id="reg_workplace" placeholder="النيابة / جهة العمل" class="w-full border rounded p-1.5">
-                <input type="text" id="reg_phone" placeholder="رقم الهاتف (واتساب)" class="w-full border rounded p-1.5">
-                <div class="flex gap-1">
-                    <input type="text" id="reg_username" placeholder="اسم المستخدم" class="w-1/2 border rounded p-1.5">
-                    <input type="password" id="reg_pin" placeholder="كلمة المرور" class="w-1/2 border rounded p-1.5">
+            <div id="formMemberRegister" class="p-4 space-y-2.5 hidden text-xs max-h-[75vh] overflow-y-auto custom-scroll">
+                <div>
+                    <label class="font-bold text-judicial-900">الاسم الكامل <span class="text-red-600">* (إجباري)</span></label>
+                    <input type="text" id="reg_name" placeholder="مثال: المستشار / أحمد طلعت الطويل" class="w-full border rounded p-1.5 mt-0.5">
+                    <p class="text-[10px] text-slate-500 mt-0.5">يُكتب الاسم ثلاثياً أو رباعياً ليظهر بصيغة البروتوكول القضائي.</p>
                 </div>
-                <input type="text" id="reg_invite" placeholder="كود الدعوة الفوري VIP (اختياري)" class="w-full bg-emerald-50 border border-emerald-300 rounded p-1.5 font-mono font-bold">
-                <button type="button" onclick="submitMemberRegister()" class="w-full bg-emerald-600 text-white py-2 rounded font-bold mt-2 shadow cursor-pointer">تسجيل الحساب</button>
+                <div>
+                    <label class="font-bold text-judicial-900">الدرجة القضائية <span class="text-red-600">* (إجباري)</span></label>
+                    <select id="reg_title" class="w-full border rounded p-1.5 mt-0.5 font-bold bg-slate-50">
+                        <option value="معاون نيابة إدارية">معاون نيابة إدارية</option>
+                        <option value="مساعد نيابة إدارية">مساعد نيابة إدارية</option>
+                        <option value="وكيل نيابة إدارية">وكيل نيابة إدارية</option>
+                        <option value="وكيل نيابة إدارية من الفئة الممتازة">وكيل نيابة إدارية من الفئة الممتازة</option>
+                        <option value="رئيس نيابة إدارية من الفئة (ب)">رئيس نيابة إدارية من الفئة (ب)</option>
+                        <option value="رئيس نيابة إدارية من الفئة (أ)">رئيس نيابة إدارية من الفئة (أ)</option>
+                        <option value="وكيل عام">وكيل عام</option>
+                        <option value="وكيل عام أول">وكيل عام أول</option>
+                        <option value="نائب رئيس هيئة النيابة الإدارية">نائب رئيس هيئة النيابة الإدارية</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="font-bold text-judicial-900">جهة العمل / النيابة <span class="text-red-600">* (إجباري)</span></label>
+                    <input type="text" id="reg_workplace" placeholder="مثال: نيابة ملوي الإدارية / المكتب الفني" class="w-full border rounded p-1.5 mt-0.5">
+                </div>
+                <div>
+                    <label class="font-bold text-judicial-900">رقم الهاتف (واتساب) <span class="text-slate-400">(اختياري - يُفضَّل للتوثيق)</span></label>
+                    <input type="text" id="reg_phone" placeholder="مثال: 010xxxxxxxx" class="w-full border rounded p-1.5 mt-0.5 font-mono">
+                    <p class="text-[10px] text-slate-500 mt-0.5">يُستخدم لمطابقة أكواد الدعوة المقيدة برقم هاتف محدد إن وُجدت.</p>
+                </div>
+                <div class="grid grid-cols-2 gap-2 pt-1 border-t">
+                    <div>
+                        <label class="font-bold text-judicial-900">اسم المستخدم <span class="text-red-600">*</span></label>
+                        <input type="text" id="reg_username" placeholder="ahmed_2026" class="w-full border rounded p-1.5 mt-0.5 font-mono text-left" dir="ltr">
+                        <p class="text-[10px] text-slate-500 mt-0.5">حروف إنجليزية وأرقام بدون مسافات.</p>
+                    </div>
+                    <div>
+                        <label class="font-bold text-judicial-900">كلمة المرور <span class="text-red-600">*</span></label>
+                        <input type="password" id="reg_pin" placeholder="••••••" class="w-full border rounded p-1.5 mt-0.5 font-mono text-left" dir="ltr">
+                        <p class="text-[10px] text-slate-500 mt-0.5">أرقام أو حروف (4 خانات فأكثر).</p>
+                    </div>
+                </div>
+                <div class="bg-emerald-50/70 p-2 rounded-lg border border-emerald-300">
+                    <label class="font-bold text-emerald-950">كود الدعوة الفوري VIP <span class="text-emerald-700">(اختياري للاعتماد الفوري)</span></label>
+                    <input type="text" id="reg_invite" placeholder="VIP-XXXXX" class="w-full bg-white border border-emerald-400 rounded p-1.5 mt-0.5 font-mono font-bold text-center uppercase" dir="ltr">
+                    <p class="text-[10px] text-emerald-800 mt-0.5">في حال إدخال كود دعوة صحيح يُفعَّل حسابك فوراً؛ وبدونه يُرسل الطلب لمراجعة مدير المنصة.</p>
+                </div>
+                <button type="button" onclick="submitMemberRegister()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-lg font-bold mt-2 shadow cursor-pointer">تسجيل الحساب واعتماده</button>
             </div>
         </div>
     </div>
@@ -511,13 +537,47 @@
             <div class="p-4 overflow-y-auto flex-1 custom-scroll" id="adminViewsContainer">
                 <div id="adm-members" class="adm-view"><table class="w-full text-right text-xs"><thead class="bg-slate-800 text-white"><tr><th class="p-2">الاسم والنيابة</th><th class="p-2">الدرجة</th><th class="p-2">رادار التواجد</th><th class="p-2">الهاتف واليوزر</th><th class="p-2">الصلاحيات</th><th class="p-2 text-center">إجراءات</th></tr></thead><tbody id="membersTableBody" class="divide-y bg-white"></tbody></table></div>
                 <div id="adm-vip" class="adm-view hidden space-y-3">
-                    <div class="flex gap-2 bg-emerald-50 p-3 rounded border border-emerald-300">
-                        <input type="text" id="vip_label" placeholder="المستشار..." class="border p-1.5 text-xs rounded bg-white">
-                        <select id="vip_max_uses" class="border p-1.5 text-xs rounded bg-white font-bold"><option value="1">مرة واحدة</option><option value="3">3 مرات</option><option value="5">5 مرات</option><option value="999">غير محدود</option></select>
-                        <input type="text" id="vip_phone_lock" placeholder="قفل هاتف (اختياري)" class="border p-1.5 text-xs rounded bg-white">
-                        <button type="button" onclick="createSmartVipToken()" class="bg-emerald-700 text-white font-bold px-4 py-1.5 rounded text-xs shadow cursor-pointer">+ توليد كود VIP</button>
+                    <div class="flex flex-wrap gap-2 bg-emerald-50 p-3 rounded-xl border border-emerald-300 items-center">
+                        <input type="text" id="vip_label" placeholder="مخصص لـ (مثال: دفعة 2024 / نيابة ملوي)..." class="flex-1 min-w-[180px] border p-1.5 text-xs rounded bg-white">
+                        <select id="vip_max_uses" class="border p-1.5 text-xs rounded bg-white font-bold">
+                            <option value="1">مستشار واحد (مرة واحدة)</option>
+                            <option value="3">3 مستشارين</option>
+                            <option value="5">5 مستشارين</option>
+                            <option value="10">10 مستشارين</option>
+                            <option value="25">25 مستشاراً</option>
+                            <option value="50">50 مستشاراً</option>
+                            <option value="999">عدد مفتوح (غير محدود)</option>
+                        </select>
+                        <input type="text" id="vip_phone_lock" placeholder="قفل برقم هاتف (اختياري)" class="border p-1.5 text-xs rounded bg-white">
+                        <button type="button" onclick="createSmartVipToken()" class="bg-emerald-700 hover:bg-emerald-600 text-white font-bold px-4 py-1.5 rounded text-xs shadow cursor-pointer">+ توليد كود VIP</button>
                     </div>
-                    <table class="w-full text-right text-xs border"><thead class="bg-slate-800 text-white"><tr><th class="p-2">الكود</th><th class="p-2">مخصص لـ</th><th class="p-2">الهاتف</th><th class="p-2">الاستخدام</th><th class="p-2">حذف</th></tr></thead><tbody id="vipTokensTableBody" class="divide-y"></tbody></table>
+                    <div class="overflow-x-auto border rounded-xl">
+                        <table class="w-full text-right text-xs">
+                            <thead class="bg-slate-800 text-white">
+                                <tr>
+                                    <th class="p-2">كود الدعوة</th>
+                                    <th class="p-2">مخصص لـ</th>
+                                    <th class="p-2">قفل الهاتف</th>
+                                    <th class="p-2">الاستخدام</th>
+                                    <th class="p-2 text-center">نسخ الدعوة والرمز</th>
+                                    <th class="p-2 text-center">حذف</th>
+                                </tr>
+                            </thead>
+                            <tbody id="vipTokensTableBody" class="divide-y bg-white"></tbody>
+                        </table>
+                    </div>
+                    <!-- صندوق تخصيص وتعديل نص رسالة الدعوة من لوحة الإدارة -->
+                    <div class="p-3 bg-amber-50/70 border border-judicial-gold rounded-xl space-y-2">
+                        <div class="flex flex-wrap justify-between items-center gap-2">
+                            <h4 class="font-bold text-judicial-900 text-xs"><i class="fa-solid fa-envelope-open-text text-judicial-gold ml-1"></i> ضبط وتعديل قالب رسالة الدعوة للزملاء</h4>
+                            <span class="text-[10px] text-slate-600 font-mono">المتغيرات التلقائية: <strong>{URL}</strong> (رابط الموقع) — <strong>{CODE}</strong> (كود الدعوة)</span>
+                        </div>
+                        <textarea id="vip_invite_template_input" rows="6" class="w-full border rounded-lg p-2 text-xs font-serif bg-white leading-relaxed"></textarea>
+                        <div class="flex justify-end gap-2">
+                            <button type="button" onclick="resetVipInviteTemplate()" class="bg-slate-200 hover:bg-slate-300 text-slate-800 px-3 py-1 rounded text-xs font-bold cursor-pointer">استعادة الصيغة الافتراضية</button>
+                            <button type="button" onclick="saveVipInviteTemplate()" class="bg-judicial-900 text-judicial-gold px-4 py-1 rounded text-xs font-bold shadow cursor-pointer">💾 حفظ قالب رسالة الدعوة سحابياً</button>
+                        </div>
+                    </div>
                 </div>
                 <div id="adm-branding" class="adm-view hidden text-xs space-y-3">
                     <div class="grid grid-cols-2 gap-3">
